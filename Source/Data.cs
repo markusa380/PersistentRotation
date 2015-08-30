@@ -248,10 +248,5 @@ namespace PersistentRotation
                 momentum[vessel.id.ToString()] = Vector3.zero;
             }
         }
-        public IEnumerator LateGenerate(Vessel vessel)
-        {
-            yield return new WaitForEndOfFrame();
-            Generate(vessel);
-        }
     }
 }

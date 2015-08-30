@@ -12,6 +12,8 @@ namespace PersistentRotation
 
         Dictionary<string, Vector3> lastPosition = new Dictionary<string, Vector3>();
         Dictionary<string, Transform> lastTransform = new Dictionary<string, Transform>();
+        Dictionary<string, bool> lastActive = new Dictionary<string, bool>();
+        Dictionary<string, ITargetable> lastReference = new Dictionary<string, ITargetable>();
 
         Vessel activeVessel;
         Data data;
@@ -26,6 +28,7 @@ namespace PersistentRotation
             GameEvents.onVesselCreate.Add(OnVesselCreate);
             GameEvents.onShowUI.Add(OnShowUI);
             GameEvents.onHideUI.Add(OnHideUI);
+            GameEvents.onVesselWillDestroy.Add(OnVesselWillDestroy);
 
             //Initialize GUI Stuff
             mainGuid = Guid.NewGuid().GetHashCode();
@@ -73,28 +76,37 @@ namespace PersistentRotation
                             PackedSpin(vessel);
                         }
                     }
+
+                    lastActive[vessel.id.ToString()] = false;
                 }
                 else
                 {
-                    if (vessel.Autopilot.Enabled && vessel.Autopilot.Mode == VesselAutopilot.AutopilotMode.StabilityAssist)
-                    {
-                        if (data.reference[vessel.id.ToString()] != null)
-                        {
-                            AdjustSAS(vessel);
-                        }
-                    }
-
-                    lastTransform[vessel.id.ToString()] = vessel.ReferenceTransform;
-
                     if (data.reference[vessel.id.ToString()] != null)
                     {
+                        if (vessel.Autopilot.Enabled && vessel.Autopilot.Mode == VesselAutopilot.AutopilotMode.StabilityAssist)
+                        {
+                            if (lastActive[vessel.id.ToString()] && data.reference[vessel.id.ToString()] == lastReference[vessel.id.ToString()])
+                            {
+                                AdjustSAS(vessel);
+                            }
+                            lastActive[vessel.id.ToString()] = true;
+                        }
+                        else
+                        {
+                            lastActive[vessel.id.ToString()] = false;
+                        }
+
                         lastPosition[vessel.id.ToString()] = (Vector3d)lastTransform[vessel.id.ToString()].position - data.reference[vessel.id.ToString()].GetTransform().position;
                     }
                     else
                     {
                         lastPosition[vessel.id.ToString()] = Vector3.zero;
+                        lastActive[vessel.id.ToString()] = false;
                     }
                 }
+
+                lastTransform[vessel.id.ToString()] = vessel.ReferenceTransform;
+                lastReference[vessel.id.ToString()] = data.reference[vessel.id.ToString()];
             }
         }
  
@@ -102,6 +114,29 @@ namespace PersistentRotation
         {
             activeVessel = vessel;
         }
+        private void OnVesselCreate(Vessel vessel)
+        {
+            StartCoroutine(LateGenerate(vessel));
+        }
+        private void OnVesselWillDestroy(Vessel vessel)
+        {
+            Debug.LogWarning("1");
+            foreach (Vessel v in FlightGlobals.Vessels)
+            {
+                Debug.LogWarning("2");
+                if (!object.ReferenceEquals(vessel, v))
+                {
+                    Debug.LogWarning("3");
+                    if (object.ReferenceEquals(vessel, data.reference[v.id.ToString()]))
+                    {
+                        Debug.LogWarning("4");
+                        data.reference[v.id.ToString()] = null;
+                        Debug.LogWarning("5");
+                    }
+                }
+            }
+        }
+
         private void OnVesselGoOnRails(Vessel vessel)
         {
             //Set momentum
@@ -164,10 +199,6 @@ namespace PersistentRotation
                 }
             }
         }
-        private void OnVesselCreate(Vessel vessel)
-        {
-            StartCoroutine(data.LateGenerate(vessel));
-        }
         private void OnDestroy()
         {
             data.Save();
@@ -180,6 +211,10 @@ namespace PersistentRotation
             GameEvents.onVesselCreate.Remove(OnVesselCreate);
             GameEvents.onShowUI.Remove(OnShowUI);
             GameEvents.onHideUI.Remove(OnHideUI);
+            GameEvents.onVesselWillDestroy.Add(OnVesselWillDestroy);
+
+            DeleteBlizzyToolbar();
+            DeleteStockToolbar();
         }
 
         void PackedSpin(Vessel vessel)
@@ -200,10 +235,19 @@ namespace PersistentRotation
                     QuaternionD delta = FromToRotation(lastPosition[vessel.id.ToString()], newPosition);
                     QuaternionD adjusted = delta * (QuaternionD)vessel.Autopilot.SAS.lockedHeading;
                     vessel.Autopilot.SAS.lockedHeading = adjusted;
-
-                    Debug.Log("Adjusted SAS");
                 }
             }
+        }
+
+        public IEnumerator LateGenerate(Vessel vessel)
+        {
+            yield return new WaitForEndOfFrame();
+            data.Generate(vessel);
+
+            lastPosition[vessel.id.ToString()] = Vector3.zero;
+            lastActive[vessel.id.ToString()] = false;
+            lastReference[vessel.id.ToString()] = null;
+            lastTransform[vessel.id.ToString()] = vessel.ReferenceTransform;
         }
 
         public QuaternionD FromToRotation(Vector3d fromv, Vector3d tov) //Stock FromToRotation() doesn't work correctly
