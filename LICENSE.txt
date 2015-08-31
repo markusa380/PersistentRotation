@@ -1,4 +1,4 @@
-TimewarpRotate including PersistentRotation.dll, PersistentRotation.cs - A modification for Kerbal Space Program by Squad
+TimewarpRotate including PersistentRotation.dll, Main.cs, Data.cs - A modification for Kerbal Space Program by Squad
 Copyright (C) 2015 Markus Appel
 
 This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation;
