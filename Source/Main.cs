@@ -174,7 +174,7 @@ namespace PersistentRotation
 
         private void OnVesselGoOnRails(Vessel vessel)
         {
-//Nnone
+             //Nothing to do here
         }
         private void OnVesselGoOffRails(Vessel vessel)
         {
@@ -353,7 +353,7 @@ namespace PersistentRotation
             GUILayout.EndHorizontal();
             if (MainWindowActive)
             {
-                if (GUILayout.Button("Body Relative Rotation", GUILayout.ExpandWidth(true)))
+                if (GUILayout.Button("Relative Rotation", GUILayout.ExpandWidth(true)))
                 {
                     showBodyWindow = !showBodyWindow;
                 }
@@ -364,7 +364,7 @@ namespace PersistentRotation
                 }
                 else
                 {
-                    GUILayout.Label("Current Body: none");
+                    GUILayout.Label("Current Reference: none");
                 }
 
             }
@@ -382,11 +382,15 @@ namespace PersistentRotation
                 showBodyWindow = false;
             }
             GUILayout.EndHorizontal();
-            GUILayout.Label("Select a target in map view\nand press <Set> to use it as reference.");
+            GUILayout.Label("Select target in map \nto set as reference");
             if (GUILayout.Button("Set", GUILayout.ExpandWidth(true)))
             {
                 if (activeVessel.targetObject.GetType() == typeof(CelestialBody) || activeVessel.targetObject.GetType() == typeof(Vessel))
                     data.reference[activeVessel.id.ToString()] = activeVessel.targetObject;
+
+                data.direction[activeVessel.id.ToString()] = data.reference[activeVessel.id.ToString()].GetTransform().position - activeVessel.transform.position;
+                data.rotation[activeVessel.id.ToString()] = activeVessel.transform.rotation;
+
             }
             if (GUILayout.Button("Unset", GUILayout.ExpandWidth(true)))
             {
@@ -397,10 +401,15 @@ namespace PersistentRotation
             if (GUILayout.Button("Sun", GUILayout.ExpandWidth(true)))
             {
                 data.reference[activeVessel.id.ToString()] = Sun.Instance.sun;
+                data.direction[activeVessel.id.ToString()] = data.reference[activeVessel.id.ToString()].GetTransform().position - activeVessel.transform.position;
+                data.rotation[activeVessel.id.ToString()] = activeVessel.transform.rotation;
             }
             if (GUILayout.Button(activeVessel.mainBody.name, GUILayout.ExpandWidth(true)))
             {
                 data.reference[activeVessel.id.ToString()] = activeVessel.mainBody;
+                data.direction[activeVessel.id.ToString()] = data.reference[activeVessel.id.ToString()].GetTransform().position - activeVessel.transform.position;
+                data.rotation[activeVessel.id.ToString()] = activeVessel.transform.rotation;
+
             }
 
             GUILayout.EndVertical();
