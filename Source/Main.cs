@@ -1,4 +1,10 @@
-﻿using System.Collections.Generic;
+﻿/* NOTES:
+
+- What happens if I delete a vessel outside Flight Scene? - Checked, all O.K.
+- Packed Rotation doesnt work correctly outside Flight Scene. - Seems fixed
+*/
+
+using System.Collections.Generic;
 using System.Collections;
 using System.Linq;
 using System;
@@ -68,7 +74,10 @@ namespace PersistentRotation
                         {
                             if (data.reference[vessel.id.ToString()] != null)
                             {
-                                PackedRotation(vessel);
+                                if (data.reference[vessel.id.ToString()] == lastReference[vessel.id.ToString()])
+                                {
+                                    PackedRotation(vessel);
+                                }
                             }
                         }
                         else
@@ -81,8 +90,36 @@ namespace PersistentRotation
                 }
                 else
                 {
+                    //+++ Testing, keep momentum synced! +++ (performance!?)
+                    //Set momentum
+                    if (vessel.Autopilot.Enabled)
+                    {
+                        data.momentum[vessel.id.ToString()] = Vector3.zero;
+                    }
+                    else
+                    {
+                        data.momentum[vessel.id.ToString()] = vessel.angularVelocity;
+                    }
+
+                    //Set direction
                     if (data.reference[vessel.id.ToString()] != null)
                     {
+                        data.direction[vessel.id.ToString()] = data.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position;
+                    }
+                    else
+                    {
+                        data.direction[vessel.id.ToString()] = Vector3.zero;
+                    }
+
+                    //Set rotation
+                    data.rotation[vessel.id.ToString()] = vessel.transform.rotation;
+
+                    //+++ Testing end
+
+                    if (data.reference[vessel.id.ToString()] != null)
+                    {
+                        data.direction[vessel.id.ToString()] = data.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position;
+
                         if (vessel.Autopilot.Enabled && vessel.Autopilot.Mode == VesselAutopilot.AutopilotMode.StabilityAssist)
                         {
                             if (lastActive[vessel.id.ToString()] && data.reference[vessel.id.ToString()] == lastReference[vessel.id.ToString()])
@@ -100,6 +137,7 @@ namespace PersistentRotation
                     }
                     else
                     {
+                        data.direction[vessel.id.ToString()] = Vector3.zero;
                         lastPosition[vessel.id.ToString()] = Vector3.zero;
                         lastActive[vessel.id.ToString()] = false;
                     }
@@ -120,18 +158,15 @@ namespace PersistentRotation
         }
         private void OnVesselWillDestroy(Vessel vessel)
         {
-            Debug.LogWarning("1");
+            //Triggered when Vessel is being destroyed
+
             foreach (Vessel v in FlightGlobals.Vessels)
             {
-                Debug.LogWarning("2");
                 if (!object.ReferenceEquals(vessel, v))
                 {
-                    Debug.LogWarning("3");
                     if (object.ReferenceEquals(vessel, data.reference[v.id.ToString()]))
                     {
-                        Debug.LogWarning("4");
                         data.reference[v.id.ToString()] = null;
-                        Debug.LogWarning("5");
                     }
                 }
             }
@@ -139,32 +174,11 @@ namespace PersistentRotation
 
         private void OnVesselGoOnRails(Vessel vessel)
         {
-            //Set momentum
-            if (vessel.Autopilot.Enabled)
-            {
-                data.momentum[vessel.id.ToString()] = Vector3.zero;
-            }
-            else
-            {
-                data.momentum[vessel.id.ToString()] = vessel.angularVelocity;
-            }
-
-            //Set rotation
-            data.rotation[vessel.id.ToString()] = vessel.transform.rotation;
-
-            //Set direction
-            if (data.reference[vessel.id.ToString()] != null)
-            {
-                data.direction[vessel.id.ToString()] = data.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position;
-            }
-            else
-            {
-                data.direction[vessel.id.ToString()] = Vector3.zero;
-            }
+//Nnone
         }
         private void OnVesselGoOffRails(Vessel vessel)
         {
-            if(vessel.Autopilot.Enabled)
+            if (vessel.ActionGroups[KSPActionGroup.SAS]) //vessel.Autopilot.Enabled does not work at this point!
             {
                 //Reset locked heading
                 vessel.Autopilot.SAS.lockedHeading = vessel.ReferenceTransform.rotation;
@@ -172,7 +186,7 @@ namespace PersistentRotation
                 //Set relative rotation if there is a reference
                 if (data.reference[vessel.id.ToString()] != null)
                 {
-
+                    Debug.LogWarning(vessel.vesselName);
                     vessel.SetRotation(Quaternion.FromToRotation(data.direction[vessel.id.ToString()], data.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position) * data.rotation[vessel.id.ToString()]);
                 }
             }
@@ -199,9 +213,12 @@ namespace PersistentRotation
                 }
             }
         }
+
         private void OnDestroy()
         {
             data.Save();
+            data = null;
+            
             SaveGUI();
 
             //Unbind functions from GameEvents
@@ -211,8 +228,7 @@ namespace PersistentRotation
             GameEvents.onVesselCreate.Remove(OnVesselCreate);
             GameEvents.onShowUI.Remove(OnShowUI);
             GameEvents.onHideUI.Remove(OnHideUI);
-            GameEvents.onVesselWillDestroy.Add(OnVesselWillDestroy);
-
+            GameEvents.onVesselWillDestroy.Remove(OnVesselWillDestroy);
             DeleteBlizzyToolbar();
             DeleteStockToolbar();
         }

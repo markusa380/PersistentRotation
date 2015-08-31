@@ -20,9 +20,7 @@ namespace PersistentRotation
 
         public void Save()
         {
-            Debug.LogWarning("Saving Data");
-
-            //Debug.Log("Save in");
+            Debug.Log("[PR] Saving Data.");
             try
             {
                 ConfigNode save = new ConfigNode();
@@ -62,7 +60,7 @@ namespace PersistentRotation
                         }
                         else
                         {
-                            Debug.LogError("[PR]: Wrong Reference Type!");
+                            Debug.LogError("[PR] Wrong Reference Type!");
                             cn_reference.AddValue(entry.Key, "NONE");
                         }
                     }
@@ -73,20 +71,19 @@ namespace PersistentRotation
                 }
                 save.Save(path);
             }
-            catch (Exception e) { Debug.LogWarning("[PR] Saving not sucessfull: " + e.Message); }
-
-            //Debug.Log("Save out");
+            catch (Exception e) { Debug.Log("[PR] Saving not sucessfull: " + e.Message); }
         }
         public void Load()
         {
             //This is called when all persistent rotation data is being loaded from the cfg file.
 
-            Debug.LogWarning("Loading Data");
+            Debug.Log("[PR]: Loading Data.");
 
             momentum.Clear();
             rotation.Clear();
             direction.Clear();
             reference.Clear();
+
             foreach (Vessel vessel in FlightGlobals.Vessels)
             {
                 Generate(vessel);
@@ -96,7 +93,7 @@ namespace PersistentRotation
             ConfigNode load = ConfigNode.Load(path);
             if (load == null)
             {
-                Debug.Log("[PR] Save file is empty or not existent!");
+                Debug.Log("[PR] Couldn't load data: File not found.");
                 return;
             }
             //Load momentum
@@ -150,7 +147,7 @@ namespace PersistentRotation
         public void Clean()
         {
 
-            Debug.LogWarning("Cleaning Data");
+            Debug.Log("[PR] Cleaning Data.");
 
             //Clean vessel momentum
             Dictionary<string, Vector3> temp_momentum = new Dictionary<string, Vector3>();
@@ -230,7 +227,13 @@ namespace PersistentRotation
         }
         public void Generate(Vessel vessel)
         {
-            Debug.LogWarning("Generating data for " + vessel.vesselName);
+            if(rotation.ContainsKey(vessel.id.ToString()) && momentum.ContainsKey(vessel.id.ToString()) && reference.ContainsKey(vessel.id.ToString()) && direction.ContainsKey(vessel.id.ToString()))
+            {
+                Debug.Log("[PR] " + vessel.vesselName + " already has data.");
+                return;
+            }
+
+            Debug.Log("[PR] Generating data for " + vessel.vesselName);
             rotation[vessel.id.ToString()] = vessel.transform.rotation;
             direction[vessel.id.ToString()] = (vessel.mainBody.position - vessel.transform.position).normalized;
             reference[vessel.id.ToString()] = null;
@@ -246,7 +249,7 @@ namespace PersistentRotation
             else
             {
                 momentum[vessel.id.ToString()] = Vector3.zero;
-            }
+                }
         }
     }
 }
