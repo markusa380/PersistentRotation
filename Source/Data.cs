@@ -254,6 +254,7 @@ namespace PersistentRotation
             }
 
             Debug.Log("[PR] Generating data for " + vessel.vesselName);
+
             rotation[vessel.id.ToString()] = vessel.transform.rotation;
             direction[vessel.id.ToString()] = (vessel.mainBody.position - vessel.transform.position).normalized;
             reference[vessel.id.ToString()] = null;
@@ -269,7 +270,7 @@ namespace PersistentRotation
             else
             {
                 momentum[vessel.id.ToString()] = Vector3.zero;
-                }
+            }
         }
     }
 }

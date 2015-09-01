@@ -138,20 +138,7 @@ namespace PersistentRotation
         }
         private void OnVesselWillDestroy(Vessel vessel)
         {
-            //Triggered when Vessel is being destroyed
-
-            Debug.Log("[PR] Deleting " + vessel.vesselName + " as reference.");
-
-            foreach (Vessel v in FlightGlobals.Vessels)
-            {
-                if (!object.ReferenceEquals(vessel, v))
-                {
-                    if (object.ReferenceEquals(vessel, data.reference[v.id.ToString()]))
-                    {
-                        data.reference[v.id.ToString()] = null;
-                    }
-                }
-            }
+            StartCoroutine(LateVesselWillDestroy(vessel));
         }
 
         private void OnVesselGoOnRails(Vessel vessel)
@@ -160,36 +147,39 @@ namespace PersistentRotation
         }
         private void OnVesselGoOffRails(Vessel vessel)
         {
-            if (vessel.ActionGroups[KSPActionGroup.SAS]) //vessel.Autopilot.Enabled does not work at this point!
+            if (vessel.situation != Vessel.Situations.LANDED || vessel.situation != Vessel.Situations.SPLASHED)
             {
-                //Reset locked heading
-                vessel.Autopilot.SAS.lockedHeading = vessel.ReferenceTransform.rotation;
-
-                //Set relative rotation if there is a reference
-                if (data.reference[vessel.id.ToString()] != null)
+                if (vessel.ActionGroups[KSPActionGroup.SAS]) //vessel.Autopilot.Enabled does not work at this point!
                 {
-                    vessel.SetRotation(Quaternion.FromToRotation(data.direction[vessel.id.ToString()], data.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position) * data.rotation[vessel.id.ToString()]);
-                }
-            }
-            else
-            {
-                Vector3 av = data.momentum[vessel.id.ToString()];
-                Vector3 COM = vessel.findWorldCenterOfMass();
-                Quaternion rotation;
-                rotation = vessel.ReferenceTransform.rotation;
+                    //Reset locked heading
+                    vessel.Autopilot.SAS.lockedHeading = vessel.ReferenceTransform.rotation;
 
-                //Applying force on every part
-                foreach (Part p in vessel.parts)
-                {
-                    try
+                    //Set relative rotation if there is a reference
+                    if (data.reference[vessel.id.ToString()] != null)
                     {
-                        if (p.rigidbody == null) continue;
-                        p.rigidbody.AddTorque(rotation * av, ForceMode.VelocityChange);
-                        p.rigidbody.AddForce(Vector3.Cross(rotation * av, (p.rigidbody.position - COM)), ForceMode.VelocityChange);
+                        vessel.SetRotation(Quaternion.FromToRotation(data.direction[vessel.id.ToString()], data.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position) * data.rotation[vessel.id.ToString()]);
                     }
-                    catch (NullReferenceException nre)
+                }
+                else
+                {
+                    Vector3 av = data.momentum[vessel.id.ToString()];
+                    Vector3 COM = vessel.findWorldCenterOfMass();
+                    Quaternion rotation;
+                    rotation = vessel.ReferenceTransform.rotation;
+
+                    //Applying force on every part
+                    foreach (Part p in vessel.parts)
                     {
-                        Debug.Log("[PR] NullReferenceException in OnVesselGoOffRails: " + nre.Message);
+                        try
+                        {
+                            if (p.rigidbody == null) continue;
+                            p.rigidbody.AddTorque(rotation * av, ForceMode.VelocityChange);
+                            p.rigidbody.AddForce(Vector3.Cross(rotation * av, (p.rigidbody.position - COM)), ForceMode.VelocityChange);
+                        }
+                        catch (NullReferenceException nre)
+                        {
+                            Debug.Log("[PR] NullReferenceException in OnVesselGoOffRails: " + nre.Message);
+                        }
                     }
                 }
             }
@@ -197,11 +187,13 @@ namespace PersistentRotation
 
         private void PackedSpin(Vessel vessel)
         {
-            vessel.SetRotation(Quaternion.AngleAxis(data.momentum[vessel.id.ToString()].magnitude * TimeWarp.CurrentRate, vessel.ReferenceTransform.rotation * data.momentum[vessel.id.ToString()]) * vessel.transform.rotation);
+            if(vessel.situation != Vessel.Situations.LANDED || vessel.situation != Vessel.Situations.SPLASHED)
+                vessel.SetRotation(Quaternion.AngleAxis(data.momentum[vessel.id.ToString()].magnitude * TimeWarp.CurrentRate, vessel.ReferenceTransform.rotation * data.momentum[vessel.id.ToString()]) * vessel.transform.rotation);
         }
         private void PackedRotation(Vessel vessel)
         {
-            vessel.SetRotation(Quaternion.FromToRotation(data.direction[vessel.id.ToString()], data.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position) * data.rotation[vessel.id.ToString()]);
+            if (vessel.situation != Vessel.Situations.LANDED || vessel.situation != Vessel.Situations.SPLASHED)
+                vessel.SetRotation(Quaternion.FromToRotation(data.direction[vessel.id.ToString()], data.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position) * data.rotation[vessel.id.ToString()]);
         }
         private void AdjustSAS(Vessel vessel)
         {
@@ -220,12 +212,37 @@ namespace PersistentRotation
         private IEnumerator LateGenerate(Vessel vessel)
         {
             yield return new WaitForEndOfFrame();
+
             data.Generate(vessel);
 
             lastPosition[vessel.id.ToString()] = Vector3.zero;
             lastActive[vessel.id.ToString()] = false;
             lastReference[vessel.id.ToString()] = null;
             lastTransform[vessel.id.ToString()] = vessel.ReferenceTransform;
+        }
+        private IEnumerator LateVesselWillDestroy(Vessel vessel)
+        {
+            yield return new WaitForEndOfFrame();
+
+            Debug.Log("[PR] Deleting " + vessel.vesselName + " as reference.");
+
+            foreach (Vessel v in FlightGlobals.Vessels)
+            {
+                if (!data.reference.ContainsKey(v.id.ToString()))
+                {
+                    data.Generate(v);
+                }
+                else
+                {
+                    if (!object.ReferenceEquals(vessel, v))
+                    {
+                        if (object.ReferenceEquals(vessel, data.reference[v.id.ToString()]))
+                        {
+                            data.reference[v.id.ToString()] = null;
+                        }
+                    }
+                }
+            }
         }
 
         public QuaternionD FromToRotation(Vector3d fromv, Vector3d tov) //Stock FromToRotation() doesn't work correctly
