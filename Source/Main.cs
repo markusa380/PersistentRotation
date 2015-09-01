@@ -11,6 +11,7 @@ namespace PersistentRotation
     {
 
         public static Main instance { get; private set; }
+        private Data data;
 
         public Dictionary<string, Vector3> lastPosition = new Dictionary<string, Vector3>();
         public Dictionary<string, Transform> lastTransform = new Dictionary<string, Transform>();
@@ -32,6 +33,7 @@ namespace PersistentRotation
         private void Start()
         {
             activeVessel = FlightGlobals.ActiveVessel;
+            data = Data.instance;
         }
         private void FixedUpdate()
         {
@@ -43,9 +45,9 @@ namespace PersistentRotation
                     {
                         if (vessel.Autopilot.Enabled)
                         {
-                            if (Data.instance.reference[vessel.id.ToString()] != null)
+                            if (data.reference[vessel.id.ToString()] != null)
                             {
-                                if (Data.instance.reference[vessel.id.ToString()] == lastReference[vessel.id.ToString()])
+                                if (data.reference[vessel.id.ToString()] == lastReference[vessel.id.ToString()])
                                 {
                                     PackedRotation(vessel);
                                 }
@@ -64,33 +66,33 @@ namespace PersistentRotation
                     //Set momentum
                     if (vessel.Autopilot.Enabled)
                     {
-                        Data.instance.momentum[vessel.id.ToString()] = Vector3.zero;
+                        data.momentum[vessel.id.ToString()] = Vector3.zero;
                     }
                     else
                     {
-                        Data.instance.momentum[vessel.id.ToString()] = vessel.angularVelocity;
+                        data.momentum[vessel.id.ToString()] = vessel.angularVelocity;
                     }
 
                     //Set direction
-                    if (Data.instance.reference[vessel.id.ToString()] != null)
+                    if (data.reference[vessel.id.ToString()] != null)
                     {
-                        Data.instance.direction[vessel.id.ToString()] = Data.instance.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position;
+                        data.direction[vessel.id.ToString()] = data.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position;
                     }
                     else
                     {
-                        Data.instance.direction[vessel.id.ToString()] = Vector3.zero;
+                        data.direction[vessel.id.ToString()] = Vector3.zero;
                     }
 
                     //Set rotation
-                    Data.instance.rotation[vessel.id.ToString()] = vessel.transform.rotation;
+                    data.rotation[vessel.id.ToString()] = vessel.transform.rotation;
 
-                    if (Data.instance.reference[vessel.id.ToString()] != null)
+                    if (data.reference[vessel.id.ToString()] != null)
                     {
-                        Data.instance.direction[vessel.id.ToString()] = Data.instance.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position;
+                        data.direction[vessel.id.ToString()] = data.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position;
 
                         if (vessel.Autopilot.Enabled && vessel.Autopilot.Mode == VesselAutopilot.AutopilotMode.StabilityAssist)
                         {
-                            if (lastActive[vessel.id.ToString()] && Data.instance.reference[vessel.id.ToString()] == lastReference[vessel.id.ToString()])
+                            if (lastActive[vessel.id.ToString()] && data.reference[vessel.id.ToString()] == lastReference[vessel.id.ToString()])
                             {
                                 AdjustSAS(vessel);
                             }
@@ -101,18 +103,18 @@ namespace PersistentRotation
                             lastActive[vessel.id.ToString()] = false;
                         }
 
-                        lastPosition[vessel.id.ToString()] = (Vector3d)lastTransform[vessel.id.ToString()].position - Data.instance.reference[vessel.id.ToString()].GetTransform().position;
+                        lastPosition[vessel.id.ToString()] = (Vector3d)lastTransform[vessel.id.ToString()].position - data.reference[vessel.id.ToString()].GetTransform().position;
                     }
                     else
                     {
-                        Data.instance.direction[vessel.id.ToString()] = Vector3.zero;
+                        data.direction[vessel.id.ToString()] = Vector3.zero;
                         lastPosition[vessel.id.ToString()] = Vector3.zero;
                         lastActive[vessel.id.ToString()] = false;
                     }
                 }
 
                 lastTransform[vessel.id.ToString()] = vessel.ReferenceTransform;
-                lastReference[vessel.id.ToString()] = Data.instance.reference[vessel.id.ToString()];
+                lastReference[vessel.id.ToString()] = data.reference[vessel.id.ToString()];
             }
         }
         private void OnDestroy()
@@ -138,13 +140,15 @@ namespace PersistentRotation
         {
             //Triggered when Vessel is being destroyed
 
+            Debug.Log("[PR] Deleting " + vessel.vesselName + " as reference.");
+
             foreach (Vessel v in FlightGlobals.Vessels)
             {
                 if (!object.ReferenceEquals(vessel, v))
                 {
-                    if (object.ReferenceEquals(vessel, Data.instance.reference[v.id.ToString()]))
+                    if (object.ReferenceEquals(vessel, data.reference[v.id.ToString()]))
                     {
-                        Data.instance.reference[v.id.ToString()] = null;
+                        data.reference[v.id.ToString()] = null;
                     }
                 }
             }
@@ -162,15 +166,14 @@ namespace PersistentRotation
                 vessel.Autopilot.SAS.lockedHeading = vessel.ReferenceTransform.rotation;
 
                 //Set relative rotation if there is a reference
-                if (Data.instance.reference[vessel.id.ToString()] != null)
+                if (data.reference[vessel.id.ToString()] != null)
                 {
-                    Debug.LogWarning(vessel.vesselName);
-                    vessel.SetRotation(Quaternion.FromToRotation(Data.instance.direction[vessel.id.ToString()], Data.instance.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position) * Data.instance.rotation[vessel.id.ToString()]);
+                    vessel.SetRotation(Quaternion.FromToRotation(data.direction[vessel.id.ToString()], data.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position) * data.rotation[vessel.id.ToString()]);
                 }
             }
             else
             {
-                Vector3 av = Data.instance.momentum[vessel.id.ToString()];
+                Vector3 av = data.momentum[vessel.id.ToString()];
                 Vector3 COM = vessel.findWorldCenterOfMass();
                 Quaternion rotation;
                 rotation = vessel.ReferenceTransform.rotation;
@@ -194,19 +197,19 @@ namespace PersistentRotation
 
         private void PackedSpin(Vessel vessel)
         {
-            vessel.SetRotation(Quaternion.AngleAxis(Data.instance.momentum[vessel.id.ToString()].magnitude * TimeWarp.CurrentRate, vessel.ReferenceTransform.rotation * Data.instance.momentum[vessel.id.ToString()]) * vessel.transform.rotation);
+            vessel.SetRotation(Quaternion.AngleAxis(data.momentum[vessel.id.ToString()].magnitude * TimeWarp.CurrentRate, vessel.ReferenceTransform.rotation * data.momentum[vessel.id.ToString()]) * vessel.transform.rotation);
         }
         private void PackedRotation(Vessel vessel)
         {
-            vessel.SetRotation(Quaternion.FromToRotation(Data.instance.direction[vessel.id.ToString()], Data.instance.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position) * Data.instance.rotation[vessel.id.ToString()]);
+            vessel.SetRotation(Quaternion.FromToRotation(data.direction[vessel.id.ToString()], data.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position) * data.rotation[vessel.id.ToString()]);
         }
         private void AdjustSAS(Vessel vessel)
         {
-            if (Data.instance.reference != null)
+            if (data.reference != null)
             {
                 if (lastTransform.ContainsKey(vessel.id.ToString()) && lastPosition.ContainsKey(vessel.id.ToString()))
                 {
-                    Vector3d newPosition = (Vector3d)lastTransform[vessel.id.ToString()].position - Data.instance.reference[vessel.id.ToString()].GetTransform().position;
+                    Vector3d newPosition = (Vector3d)lastTransform[vessel.id.ToString()].position - data.reference[vessel.id.ToString()].GetTransform().position;
                     QuaternionD delta = FromToRotation(lastPosition[vessel.id.ToString()], newPosition);
                     QuaternionD adjusted = delta * (QuaternionD)vessel.Autopilot.SAS.lockedHeading;
                     vessel.Autopilot.SAS.lockedHeading = adjusted;
@@ -217,7 +220,7 @@ namespace PersistentRotation
         private IEnumerator LateGenerate(Vessel vessel)
         {
             yield return new WaitForEndOfFrame();
-            Data.instance.Generate(vessel);
+            data.Generate(vessel);
 
             lastPosition[vessel.id.ToString()] = Vector3.zero;
             lastActive[vessel.id.ToString()] = false;

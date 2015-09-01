@@ -11,6 +11,8 @@ namespace PersistentRotation
     {
         public static Interface instance { get; private set; }
 
+        private Data data;
+
         private Vessel activeVessel
         {
             get { return Main.instance.activeVessel; }
@@ -71,6 +73,11 @@ namespace PersistentRotation
                 CreateBlizzyToolbar();
             }
         }
+        private void Start()
+        {
+            data = Data.instance;
+        }
+
         private void OnDestroy()
         {
             instance = null;
@@ -143,9 +150,9 @@ namespace PersistentRotation
                     showBodyWindow = !showBodyWindow;
                 }
 
-                if (Data.instance.reference[activeVessel.id.ToString()] != null)
+                if (data.reference[activeVessel.id.ToString()] != null)
                 {
-                    GUILayout.Label("Current Reference: " + Data.instance.reference[activeVessel.id.ToString()].GetName());
+                    GUILayout.Label("Current Reference: " + data.reference[activeVessel.id.ToString()].GetName());
                 }
                 else
                 {
@@ -173,29 +180,29 @@ namespace PersistentRotation
             if (GUILayout.Button("Set", GUILayout.ExpandWidth(true)))
             {
                 if (activeVessel.targetObject.GetType() == typeof(CelestialBody) || activeVessel.targetObject.GetType() == typeof(Vessel))
-                    Data.instance.reference[activeVessel.id.ToString()] = activeVessel.targetObject;
+                    data.reference[activeVessel.id.ToString()] = activeVessel.targetObject;
 
-                Data.instance.direction[activeVessel.id.ToString()] = Data.instance.reference[activeVessel.id.ToString()].GetTransform().position - activeVessel.transform.position;
-                Data.instance.rotation[activeVessel.id.ToString()] = activeVessel.transform.rotation;
+                data.direction[activeVessel.id.ToString()] = data.reference[activeVessel.id.ToString()].GetTransform().position - activeVessel.transform.position;
+                data.rotation[activeVessel.id.ToString()] = activeVessel.transform.rotation;
 
             }
             if (GUILayout.Button("Unset", GUILayout.ExpandWidth(true)))
             {
-                Data.instance.reference[activeVessel.id.ToString()] = null;
+                data.reference[activeVessel.id.ToString()] = null;
 
             }
             GUILayout.Space(10);
             if (GUILayout.Button("Sun", GUILayout.ExpandWidth(true)))
             {
-                Data.instance.reference[activeVessel.id.ToString()] = Sun.Instance.sun;
-                Data.instance.direction[activeVessel.id.ToString()] = Data.instance.reference[activeVessel.id.ToString()].GetTransform().position - activeVessel.transform.position;
-                Data.instance.rotation[activeVessel.id.ToString()] = activeVessel.transform.rotation;
+                data.reference[activeVessel.id.ToString()] = Sun.Instance.sun;
+                data.direction[activeVessel.id.ToString()] = data.reference[activeVessel.id.ToString()].GetTransform().position - activeVessel.transform.position;
+                data.rotation[activeVessel.id.ToString()] = activeVessel.transform.rotation;
             }
             if (GUILayout.Button(activeVessel.mainBody.name, GUILayout.ExpandWidth(true)))
             {
-                Data.instance.reference[activeVessel.id.ToString()] = activeVessel.mainBody;
-                Data.instance.direction[activeVessel.id.ToString()] = Data.instance.reference[activeVessel.id.ToString()].GetTransform().position - activeVessel.transform.position;
-                Data.instance.rotation[activeVessel.id.ToString()] = activeVessel.transform.rotation;
+                data.reference[activeVessel.id.ToString()] = activeVessel.mainBody;
+                data.direction[activeVessel.id.ToString()] = data.reference[activeVessel.id.ToString()].GetTransform().position - activeVessel.transform.position;
+                data.rotation[activeVessel.id.ToString()] = activeVessel.transform.rotation;
 
             }
 
