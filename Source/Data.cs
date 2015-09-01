@@ -6,8 +6,11 @@ using UnityEngine;
 
 namespace PersistentRotation
 {
-    class Data
+    [KSPAddon(KSPAddon.Startup.Flight, false)]
+    class Data : MonoBehaviour
     {
+        public static Data instance { get; private set; }
+
         String path
         {
             get { return KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PersistentRotation_" + HighLogic.CurrentGame.Title.TrimEnd("_()SANDBOXCAREERSCIENCE".ToCharArray()).TrimEnd(' ') + ".cfg"; }
@@ -17,6 +20,23 @@ namespace PersistentRotation
         public Dictionary<string, Quaternion> rotation = new Dictionary<string, Quaternion>();
         public Dictionary<string, Vector3> direction = new Dictionary<string, Vector3>();
         public Dictionary<string, ITargetable> reference = new Dictionary<string, ITargetable>();
+
+        private void Awake()
+        {
+            instance = this;
+        }
+
+        private void Start()
+        {
+            Load();
+            Clean();
+        }
+
+        private void OnDestroy()
+        {
+            instance = null;
+            Save();
+        }
 
         public void Save()
         {
