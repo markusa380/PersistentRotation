@@ -39,11 +39,11 @@ namespace PersistentRotation
         {
             foreach (Vessel vessel in FlightGlobals.Vessels)
             {
-                if(vessel.packed)
+                if (vessel.packed)
                 {
-                    if (vessel.loaded) //Performance improvement, maybe
+                    if (vessel.loaded)
                     {
-                        if (vessel.Autopilot.Enabled)
+                        if (vessel.Autopilot.Enabled && vessel.IsControllable)
                         {
                             if (data.reference[vessel.id.ToString()] != null)
                             {
@@ -64,7 +64,7 @@ namespace PersistentRotation
                 else
                 {
                     //Set momentum
-                    if (vessel.Autopilot.Enabled)
+                    if (vessel.Autopilot.Enabled && vessel.IsControllable)
                     {
                         data.momentum[vessel.id.ToString()] = Vector3.zero;
                     }
@@ -138,7 +138,25 @@ namespace PersistentRotation
         }
         private void OnVesselWillDestroy(Vessel vessel)
         {
-            StartCoroutine(LateVesselWillDestroy(vessel));
+            Debug.Log("[PR] Deleting " + vessel.vesselName + " as reference.");
+
+            foreach (Vessel v in FlightGlobals.Vessels)
+            {
+                if (!data.reference.ContainsKey(v.id.ToString()))
+                {
+                    data.Generate(v);
+                }
+                else
+                {
+                    if (!object.ReferenceEquals(vessel, v))
+                    {
+                        if (object.ReferenceEquals(vessel, data.reference[v.id.ToString()]))
+                        {
+                            data.reference[v.id.ToString()] = null;
+                        }
+                    }
+                }
+            }
         }
 
         private void OnVesselGoOnRails(Vessel vessel)
@@ -149,7 +167,7 @@ namespace PersistentRotation
         {
             if (vessel.situation != Vessel.Situations.LANDED || vessel.situation != Vessel.Situations.SPLASHED)
             {
-                if (vessel.ActionGroups[KSPActionGroup.SAS]) //vessel.Autopilot.Enabled does not work at this point!
+                if (vessel.ActionGroups[KSPActionGroup.SAS] && vessel.IsControllable) //vessel.Autopilot.Enabled does not work at this point!
                 {
                     //Reset locked heading
                     vessel.Autopilot.SAS.lockedHeading = vessel.ReferenceTransform.rotation;
@@ -212,37 +230,12 @@ namespace PersistentRotation
         private IEnumerator LateGenerate(Vessel vessel)
         {
             yield return new WaitForEndOfFrame();
-
             data.Generate(vessel);
 
             lastPosition[vessel.id.ToString()] = Vector3.zero;
             lastActive[vessel.id.ToString()] = false;
             lastReference[vessel.id.ToString()] = null;
             lastTransform[vessel.id.ToString()] = vessel.ReferenceTransform;
-        }
-        private IEnumerator LateVesselWillDestroy(Vessel vessel)
-        {
-            yield return new WaitForEndOfFrame();
-
-            Debug.Log("[PR] Deleting " + vessel.vesselName + " as reference.");
-
-            foreach (Vessel v in FlightGlobals.Vessels)
-            {
-                if (!data.reference.ContainsKey(v.id.ToString()))
-                {
-                    data.Generate(v);
-                }
-                else
-                {
-                    if (!object.ReferenceEquals(vessel, v))
-                    {
-                        if (object.ReferenceEquals(vessel, data.reference[v.id.ToString()]))
-                        {
-                            data.reference[v.id.ToString()] = null;
-                        }
-                    }
-                }
-            }
         }
 
         public QuaternionD FromToRotation(Vector3d fromv, Vector3d tov) //Stock FromToRotation() doesn't work correctly
