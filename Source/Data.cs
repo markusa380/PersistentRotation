@@ -3,6 +3,7 @@ using System.Collections;
 using System.Linq;
 using System;
 using UnityEngine;
+using System.IO;
 
 namespace PersistentRotation
 {
@@ -14,6 +15,10 @@ namespace PersistentRotation
         String path
         {
             get { return KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PersistentRotation_" + HighLogic.CurrentGame.Title.TrimEnd("_()SANDBOXCAREERSCIENCE".ToCharArray()).TrimEnd(' ') + ".cfg"; }
+        }
+        String backup_path
+        {
+            get { return KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/Backup_PersistentRotation_" + HighLogic.CurrentGame.Title.TrimEnd("_()SANDBOXCAREERSCIENCE".ToCharArray()).TrimEnd(' ') + ".cfg"; }
         }
 
         public Dictionary<string, Vector3> momentum = new Dictionary<string, Vector3>();
@@ -30,12 +35,20 @@ namespace PersistentRotation
         {
             Load();
             Clean();
+
+            if (FlightGlobals.ActiveVessel.situation == Vessel.Situations.PRELAUNCH)
+            {
+                momentum[FlightGlobals.ActiveVessel.id.ToString()] = Vector3.zero;
+            }
         }
 
         private void OnDestroy()
         {
             instance = null;
             Save();
+
+            File.Delete(backup_path);
+            File.Copy(path, backup_path);
         }
 
         public void Save()
@@ -44,6 +57,7 @@ namespace PersistentRotation
             try
             {
                 ConfigNode save = new ConfigNode();
+                save.AddValue("TIME", Planetarium.GetUniversalTime());
                 ConfigNode.CreateConfigFromObject(this, 0, save);
 
                 //Save momentum of all vessels
@@ -115,6 +129,18 @@ namespace PersistentRotation
             {
                 Debug.Log("[PR] Couldn't load data: File not found.");
                 return;
+            }
+            if(float.Parse(load.GetValue("TIME")) >= Planetarium.GetUniversalTime())
+            {
+                Debug.Log("[PR] Loading Backup!");
+                load = null;
+
+                load = ConfigNode.Load(backup_path);
+                if (load == null)
+                {
+                    Debug.Log("[PR] Couldn't load data: File not found.");
+                    return;
+                }
             }
             //Load momentum
             ConfigNode cn_momentum = load.GetNode("MOMENTUM");
