@@ -7,7 +7,6 @@ Feature List
 - Persistence of Momentum through timewarping and restarts.
 - Non-physical spin simulation when vessel is warping or unloaded.
 - Body Relative Rotation, optional for each vessel, 100% persistent.*
-- Artificial Gravity Calculator for every crew member of rotating vessel.
 - Slight spin for every Asteroid per default.
 - Simple & intuitive GUI supporting both Stock and Blizzy's Toolbar.
 
