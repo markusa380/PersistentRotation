@@ -12,13 +12,41 @@ namespace PersistentRotation
     {
         public static Data instance { get; private set; }
 
-        String path
+        String GetPath(int counter)
         {
-            get { return KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PersistentRotation_" + HighLogic.CurrentGame.Title.TrimEnd("_()SANDBOXCAREERSCIENCE".ToCharArray()).TrimEnd(' ') + ".cfg"; }
+            return KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PersistentRotation_" + HighLogic.CurrentGame.Title.TrimEnd("_()SANDBOXCAREERSCIENCE".ToCharArray()).TrimEnd(' ') + "_" + counter.ToString() +".cfg";
         }
-        String backup_path
+        String GetUnusedPath()
         {
-            get { return KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/Backup_PersistentRotation_" + HighLogic.CurrentGame.Title.TrimEnd("_()SANDBOXCAREERSCIENCE".ToCharArray()).TrimEnd(' ') + ".cfg"; }
+            int i = 0;
+            while(true)
+            {
+                if(!File.Exists(GetPath(i)))
+                {
+                    return (GetPath(i));
+                }
+                else
+                {
+                    i++;
+                }
+            }
+        }
+        List<String> GetAllPaths()
+        {
+            int i = 0;
+            List<String> paths = new List<String>();
+            while (true)
+            {
+                if (!File.Exists(GetPath(i)))
+                {
+                    return(paths);
+                }
+                else
+                {
+                    paths.Add(GetPath(i));
+                    i++;
+                }
+            }
         }
 
         public Dictionary<string, Vector3> momentum = new Dictionary<string, Vector3>();
@@ -34,7 +62,6 @@ namespace PersistentRotation
         private void Start()
         {
             Load();
-            Clean();
 
             if (FlightGlobals.ActiveVessel.situation == Vessel.Situations.PRELAUNCH)
             {
@@ -45,10 +72,6 @@ namespace PersistentRotation
         private void OnDestroy()
         {
             instance = null;
-            Save();
-
-            File.Delete(backup_path);
-            File.Copy(path, backup_path);
         }
 
         public void Save()
@@ -103,7 +126,7 @@ namespace PersistentRotation
                         cn_reference.AddValue(entry.Key, "NONE");
                     }
                 }
-                save.Save(path);
+                save.Save(GetUnusedPath());
             }
             catch (Exception e) { Debug.Log("[PR] Saving not sucessfull: " + e.Message); }
         }
@@ -123,25 +146,53 @@ namespace PersistentRotation
                 Generate(vessel);
             }
 
-            //Open cfg file
-            ConfigNode load = ConfigNode.Load(path);
-            if (load == null)
+            ConfigNode temp = null;
+            float temp_delta = 0f;
+            ConfigNode load = null;
+            float load_delta = 0f;
+            float oldest_time = 0f;
+
+            List<String> allPaths = GetAllPaths();
+
+            if(allPaths.Count() == 0)
             {
-                Debug.Log("[PR] Couldn't load data: File not found.");
+                Debug.Log("[PR] No save files found.");
                 return;
             }
-            if(float.Parse(load.GetValue("TIME")) >= Planetarium.GetUniversalTime())
-            {
-                Debug.Log("[PR] Loading Backup!");
-                load = null;
 
-                load = ConfigNode.Load(backup_path);
-                if (load == null)
+            foreach (String path in allPaths)
+            {
+                temp = ConfigNode.Load(path);
+                if (temp == null)
                 {
                     Debug.Log("[PR] Couldn't load data: File not found.");
-                    return;
+                    continue;
+                }
+
+
+                float time = float.Parse(temp.GetValue("TIME"));
+                temp_delta = Mathf.Abs(time - (float)Planetarium.GetUniversalTime());
+
+                if(time > oldest_time)
+                {
+                    oldest_time = time;
+                }
+
+                if(load == null)
+                {
+                    load = temp;
+                    load_delta = temp_delta;
+                }
+                else
+                {
+                    if(temp_delta < load_delta)
+                    {
+                        load = temp;
+                        load_delta = temp_delta;
+                    }
                 }
             }
+
             //Load momentum
             ConfigNode cn_momentum = load.GetNode("MOMENTUM");
             foreach (ConfigNode.Value s in cn_momentum.values)
@@ -188,6 +239,26 @@ namespace PersistentRotation
                     reference[s.name] = null;
                 }
             }
+
+            Clean();
+
+            //If old save state is loaded, delete all save files!
+            if (float.Parse(load.GetValue("TIME")) < oldest_time)
+            {
+                Debug.Log("[PR] Reloading old save, flushing data.");
+
+                foreach (String path in GetAllPaths())
+                {
+                    File.Delete(path);
+                }
+
+                //Save current loaded one.
+                Save();
+            }
+
+            Debug.Log("[PR] Oldest time: " + oldest_time.ToString());
+            Debug.Log("[PR] Loaded time: " + load.GetValue("TIME"));
+
             //Debug.Log("Load out");
         }
         public void Clean()

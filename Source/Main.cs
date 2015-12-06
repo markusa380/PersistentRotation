@@ -29,7 +29,9 @@ namespace PersistentRotation
             GameEvents.onVesselGoOffRails.Add(OnVesselGoOffRails);
             GameEvents.onVesselCreate.Add(OnVesselCreate);
             GameEvents.onVesselWillDestroy.Add(OnVesselWillDestroy);
+            GameEvents.onGameStateSave.Add(OnGameStateSave);
         }
+
         private void Start()
         {
             activeVessel = FlightGlobals.ActiveVessel;
@@ -126,6 +128,14 @@ namespace PersistentRotation
             GameEvents.onVesselGoOffRails.Remove(OnVesselGoOffRails);
             GameEvents.onVesselCreate.Remove(OnVesselCreate);
             GameEvents.onVesselWillDestroy.Remove(OnVesselWillDestroy);
+            GameEvents.onGameStateSave.Remove(OnGameStateSave);
+        }
+        private void OnGameStateSave(ConfigNode config)
+        {
+            if (data)
+            {
+                data.Save();
+            }
         }
 
         private void OnVesselChange(Vessel vessel)
