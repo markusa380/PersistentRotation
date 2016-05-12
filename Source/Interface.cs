@@ -3,6 +3,7 @@ using System.Collections;
 using System.Linq;
 using System;
 using UnityEngine;
+using KSP.UI.Screens;
 
 namespace PersistentRotation
 {
@@ -30,8 +31,8 @@ namespace PersistentRotation
             get { return KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/GUIconfig.cfg"; }
         }
 
-        Rect BodyWindowRect;
         Rect MainWindowRect;
+        Rect BodyWindowRect;
         Rect ConfigWindowRect;
 
         bool hidden = false; //If F2 is pressed
@@ -43,6 +44,9 @@ namespace PersistentRotation
 
         bool MainWindowActive = false; // minimize-maximize, overwritten by LoadGUI
         int visibility_mode = 1; // 1: Always Visible, 2: Stock Toolbar, 3: Blizzys Toolbar, overwritten by LoadGUI
+
+        int mode = 1; // 1: rotation, 2: momentum
+        public string desired_rpm_str = "";
 
         Texture close = GameDatabase.Instance.GetTexture("PersistentRotation/Textures/close_w", false);
         Texture options = GameDatabase.Instance.GetTexture("PersistentRotation/Textures/options_w", false);
@@ -77,7 +81,6 @@ namespace PersistentRotation
         {
             data = Data.instance;
         }
-
         private void OnDestroy()
         {
             instance = null;
@@ -97,7 +100,7 @@ namespace PersistentRotation
             {
                 if (showMainWindow)
                 {
-                    MainWindowRect = GUILayout.Window(mainGuid, MainWindowRect, MainGUI, "Persistent Rotation");
+                    MainWindowRect = GUILayout.Window(mainGuid, MainWindowRect, MainGUI, "PersistentRotation 1.1");
                 }
                 if (showBodyWindow)
                 {
@@ -131,6 +134,7 @@ namespace PersistentRotation
             }
 
             GUILayout.BeginVertical();
+            //Minimize und Option Buttons
             GUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
             if (GUILayout.Button(options))
@@ -143,26 +147,137 @@ namespace PersistentRotation
                 MainWindowRect = new Rect(MainWindowRect.x, MainWindowRect.y, 200, 10);
             }
             GUILayout.EndHorizontal();
+
+            //If maximized
             if (MainWindowActive)
             {
-                if (GUILayout.Button("Relative Rotation", GUILayout.ExpandWidth(true)))
+                if (activeVessel.IsControllable)
                 {
-                    showBodyWindow = !showBodyWindow;
-                }
+                    GUILayout.BeginHorizontal();
+                    if (data.rotation_mode_active[activeVessel.id.ToString()])
+                        GUI.contentColor = Color.green;
+                    else
+                        GUI.contentColor = Color.red;
 
-                if (data.reference[activeVessel.id.ToString()] != null)
-                {
-                    GUILayout.Label("Current Reference: " + data.reference[activeVessel.id.ToString()].GetName());
+                    if (GUILayout.Button("Rotation", GUILayout.ExpandWidth(true)))
+                    {
+                        mode = 1;
+                    }
+
+                    if (data.momentum_mode_active[activeVessel.id.ToString()])
+                        GUI.contentColor = Color.green;
+                    else
+                        GUI.contentColor = Color.red;
+
+                    if (GUILayout.Button("Momentum", GUILayout.ExpandWidth(true)))
+                    {
+                        mode = 2;
+                    }
+
+                    GUI.contentColor = Color.white;
+
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.Space(15f);
+
+                    if (mode == 1)
+                    {
+                        if (!activeVessel.Autopilot.Enabled)
+                            GUILayout.Label("Enable SAS to use this mode!");
+                        else
+                        {
+                            if (GUILayout.Button("Relative Rotation", GUILayout.ExpandWidth(true)))
+                            {
+                                showBodyWindow = !showBodyWindow;
+                            }
+
+                            if (data.use_default_reference[activeVessel.id.ToString()])
+                            {
+                                GUILayout.Label("Current Reference: Default");
+                            }
+                            else if (data.reference[activeVessel.id.ToString()] != null)
+                            {
+                                GUILayout.Label("Current Reference: " + data.reference[activeVessel.id.ToString()].GetName());
+                            }
+                            else
+                            {
+                                GUILayout.Label("Current Reference: none");
+                            }
+
+                            string _text = "Activate";
+                            if (data.rotation_mode_active[activeVessel.id.ToString()])
+                            {
+                                _text = "Deactivate";
+                            }
+
+                            if (GUILayout.Button(_text, GUILayout.ExpandWidth(true)))
+                            {
+                                if(data.rotation_mode_active[activeVessel.id.ToString()] == false)
+                                {
+                                    data.rotation_mode_active[activeVessel.id.ToString()] = true;
+                                    data.momentum_mode_active[activeVessel.id.ToString()] = false;
+
+                                    data.direction[activeVessel.id.ToString()] = data.reference[activeVessel.id.ToString()].GetTransform().position - activeVessel.transform.position;
+                                    data.rotation[activeVessel.id.ToString()] = activeVessel.transform.rotation;
+                                }
+                                else
+                                {
+                                    data.rotation_mode_active[activeVessel.id.ToString()] = false;
+                                }
+
+                            }
+                        }
+                    }
+                    else if (mode == 2)
+                    {
+                        if (!activeVessel.Autopilot.Enabled)
+                            GUILayout.Label("Enable SAS to use this mode!");
+                        else
+                        {
+                            GUILayout.Label("Overwrite RPM:");
+                            GUILayout.BeginHorizontal();
+                            desired_rpm_str = GUILayout.TextField(desired_rpm_str);
+                            GUILayout.Label(" RPM");
+                            GUILayout.EndHorizontal();
+                            GUILayout.Space(10f);
+                            string _text = "Activate";
+                            if (data.momentum_mode_active[activeVessel.id.ToString()])
+                            {
+                                _text = "Deactivate";
+                            }
+
+                            if (GUILayout.Button(_text, GUILayout.ExpandWidth(true)))
+                            {
+                                data.rotation_mode_active[activeVessel.id.ToString()] = false;
+
+                                if (data.momentum_mode_active[activeVessel.id.ToString()])
+                                {
+                                    data.momentum_mode_active[activeVessel.id.ToString()] = false;
+                                }
+                                else
+                                {
+                                    try
+                                    {
+                                        data.desired_rpm[activeVessel.id.ToString()] = float.Parse(desired_rpm_str);
+                                        data.momentum_mode_active[activeVessel.id.ToString()] = true;
+                                    }
+                                    catch
+                                    {
+                                        desired_rpm_str = data.desired_rpm[activeVessel.id.ToString()].ToString();
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 else
                 {
-                    GUILayout.Label("Current Reference: none");
+                    GUILayout.Label("Vessel is not controllable.");
                 }
 
+                GUILayout.EndVertical();
+                GUI.DragWindow();
             }
-            GUILayout.EndVertical();
-            GUI.DragWindow();
-
         }
         private void BodyGUI(int windowID)
         {
@@ -181,29 +296,27 @@ namespace PersistentRotation
             {
                 if (activeVessel.targetObject.GetType() == typeof(CelestialBody) || activeVessel.targetObject.GetType() == typeof(Vessel))
                     data.reference[activeVessel.id.ToString()] = activeVessel.targetObject;
-
-                data.direction[activeVessel.id.ToString()] = data.reference[activeVessel.id.ToString()].GetTransform().position - activeVessel.transform.position;
-                data.rotation[activeVessel.id.ToString()] = activeVessel.transform.rotation;
-
+                data.use_default_reference[activeVessel.id.ToString()] = false;
             }
             if (GUILayout.Button("Unset", GUILayout.ExpandWidth(true)))
             {
                 data.reference[activeVessel.id.ToString()] = null;
-
+                data.use_default_reference[activeVessel.id.ToString()] = false;
             }
             GUILayout.Space(10);
             if (GUILayout.Button("Sun", GUILayout.ExpandWidth(true)))
             {
                 data.reference[activeVessel.id.ToString()] = Sun.Instance.sun;
-                data.direction[activeVessel.id.ToString()] = data.reference[activeVessel.id.ToString()].GetTransform().position - activeVessel.transform.position;
-                data.rotation[activeVessel.id.ToString()] = activeVessel.transform.rotation;
+                data.use_default_reference[activeVessel.id.ToString()] = false;
             }
             if (GUILayout.Button(activeVessel.mainBody.name, GUILayout.ExpandWidth(true)))
             {
                 data.reference[activeVessel.id.ToString()] = activeVessel.mainBody;
-                data.direction[activeVessel.id.ToString()] = data.reference[activeVessel.id.ToString()].GetTransform().position - activeVessel.transform.position;
-                data.rotation[activeVessel.id.ToString()] = activeVessel.transform.rotation;
-
+                data.use_default_reference[activeVessel.id.ToString()] = false;
+            }
+            if (GUILayout.Button("Default", GUILayout.ExpandWidth(true)))
+            {
+                data.use_default_reference[activeVessel.id.ToString()] = true;
             }
 
             GUILayout.EndVertical();

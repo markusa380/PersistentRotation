@@ -24,7 +24,6 @@ namespace PersistentRotation
         {
             instance = this;
 
-            GameEvents.onVesselChange.Add(OnVesselChange);
             GameEvents.onVesselGoOnRails.Add(OnVesselGoOnRails);
             GameEvents.onVesselGoOffRails.Add(OnVesselGoOffRails);
             GameEvents.onVesselCreate.Add(OnVesselCreate);
@@ -39,15 +38,33 @@ namespace PersistentRotation
         }
         private void FixedUpdate()
         {
+            if(activeVessel != FlightGlobals.ActiveVessel)
+            {
+                activeVessel = FlightGlobals.ActiveVessel;
+                Interface.instance.desired_rpm_str = data.desired_rpm[activeVessel.id.ToString()].ToString();
+            }
+
             foreach (Vessel vessel in FlightGlobals.Vessels)
             {
+                if(data.use_default_reference[vessel.id.ToString()])
+                {
+                    if (!data.reference[vessel.id.ToString()].Equals(vessel.mainBody)) //Default Mode; Continous update of reference to mainBody
+                    {
+                        data.reference[vessel.id.ToString()] = vessel.mainBody;
+                        data.direction[vessel.id.ToString()] = data.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position;
+                        data.rotation[vessel.id.ToString()] = vessel.transform.rotation;
+                        lastActive[vessel.id.ToString()] = false;
+                    }
+                }
+
                 if (vessel.packed)
                 {
-                    if (vessel.loaded)
+                    #region ### PACKED ###
+                    if (vessel.loaded) //is okay, rotation doesnt need to be persistent when rotating
                     {
-                        if (vessel.Autopilot.Enabled && vessel.IsControllable)
+                        if (!data.momentum_mode_active[vessel.id.ToString()] && vessel.Autopilot.Enabled && vessel.IsControllable) //C1
                         {
-                            if (data.reference[vessel.id.ToString()] != null)
+                            if (data.rotation_mode_active[vessel.id.ToString()] == true && data.reference[vessel.id.ToString()] != null) //C2
                             {
                                 if (data.reference[vessel.id.ToString()] == lastReference[vessel.id.ToString()])
                                 {
@@ -57,16 +74,19 @@ namespace PersistentRotation
                         }
                         else
                         {
-                            PackedSpin(vessel);
+                            PackedSpin(vessel); //NOT CONTROLLABLE
                         }
                     }
 
                     lastActive[vessel.id.ToString()] = false;
+
+                    #endregion
                 }
                 else
                 {
-                    //Set momentum
-                    if (vessel.Autopilot.Enabled && vessel.IsControllable)
+                    #region ### UNPACKED ###
+                    //Update Momentum when unpacked
+                    if (!data.momentum_mode_active[vessel.id.ToString()] && vessel.Autopilot.Enabled && vessel.IsControllable) //C1
                     {
                         data.momentum[vessel.id.ToString()] = Vector3.zero;
                     }
@@ -75,24 +95,30 @@ namespace PersistentRotation
                         data.momentum[vessel.id.ToString()] = vessel.angularVelocity;
                     }
 
-                    //Set direction
-                    if (data.reference[vessel.id.ToString()] != null)
+                    //Apply Momentum to activeVessel using Fly-By-Wire
+                    if (data.momentum_mode_active[vessel.id.ToString()] && vessel.Autopilot.Enabled) //C1 \ IsControllable
                     {
-                        data.direction[vessel.id.ToString()] = data.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position;
+                        float desired_rpm = (vessel.angularVelocity.magnitude * 60f * (1f / Time.fixedDeltaTime)) / 360f;
+                        if (data.desired_rpm[vessel.id.ToString()] >= 0)
+                        {
+                            vessel.ctrlState.roll = Mathf.Clamp((data.desired_rpm[vessel.id.ToString()] - desired_rpm), -1f, +1f);
+                        }
+                        else
+                        {
+                            vessel.ctrlState.roll = -Mathf.Clamp((-data.desired_rpm[vessel.id.ToString()] - desired_rpm), -1f, +1f);
+                        }
                     }
-                    else
-                    {
-                        data.direction[vessel.id.ToString()] = Vector3.zero;
-                    }
 
-                    //Set rotation
-                    data.rotation[vessel.id.ToString()] = vessel.transform.rotation;
+                    //Update rotation
+                    data.rotation[vessel.id.ToString()] = vessel.transform.rotation; //MAYBE AAAAAA
 
-                    if (data.reference[vessel.id.ToString()] != null)
+                    //Adjust SAS for Relative Rotation
+                    if (data.rotation_mode_active[vessel.id.ToString()] && data.reference[vessel.id.ToString()] != null) //C2
                     {
+                        //Update direction
                         data.direction[vessel.id.ToString()] = data.reference[vessel.id.ToString()].GetTransform().position - vessel.transform.position;
 
-                        if (vessel.Autopilot.Enabled && vessel.Autopilot.Mode == VesselAutopilot.AutopilotMode.StabilityAssist)
+                        if (!data.momentum_mode_active[vessel.id.ToString()] && vessel.Autopilot.Enabled && vessel.Autopilot.Mode == VesselAutopilot.AutopilotMode.StabilityAssist)
                         {
                             if (lastActive[vessel.id.ToString()] && data.reference[vessel.id.ToString()] == lastReference[vessel.id.ToString()])
                             {
@@ -113,6 +139,7 @@ namespace PersistentRotation
                         lastPosition[vessel.id.ToString()] = Vector3.zero;
                         lastActive[vessel.id.ToString()] = false;
                     }
+                    #endregion
                 }
 
                 lastTransform[vessel.id.ToString()] = vessel.ReferenceTransform;
@@ -123,7 +150,6 @@ namespace PersistentRotation
         {
             instance = null;
             //Unbind functions from GameEvents
-            GameEvents.onVesselChange.Remove(OnVesselChange);
             GameEvents.onVesselGoOnRails.Remove(OnVesselGoOnRails);
             GameEvents.onVesselGoOffRails.Remove(OnVesselGoOffRails);
             GameEvents.onVesselCreate.Remove(OnVesselCreate);
@@ -138,14 +164,22 @@ namespace PersistentRotation
             }
         }
 
-        private void OnVesselChange(Vessel vessel)
-        {
-            activeVessel = vessel;
-        }
         private void OnVesselCreate(Vessel vessel)
         {
+            //Wait for Vessel to be created
             StartCoroutine(LateGenerate(vessel));
         }
+        private IEnumerator LateGenerate(Vessel vessel)
+        {
+            yield return new WaitForEndOfFrame();
+            data.Generate(vessel);
+
+            lastPosition[vessel.id.ToString()] = Vector3.zero;
+            lastActive[vessel.id.ToString()] = false;
+            lastReference[vessel.id.ToString()] = null;
+            lastTransform[vessel.id.ToString()] = vessel.ReferenceTransform;
+        }
+
         private void OnVesselWillDestroy(Vessel vessel)
         {
             Debug.Log("[PR] Deleting " + vessel.vesselName + " as reference.");
@@ -177,9 +211,9 @@ namespace PersistentRotation
         {
             if (vessel.situation != Vessel.Situations.LANDED || vessel.situation != Vessel.Situations.SPLASHED)
             {
-                if (vessel.ActionGroups[KSPActionGroup.SAS] && vessel.IsControllable) //vessel.Autopilot.Enabled does not work at this point!
+                if (vessel.ActionGroups[KSPActionGroup.SAS] && vessel.IsControllable && !data.momentum_mode_active[vessel.id.ToString()] && data.rotation_mode_active[vessel.id.ToString()]) //vessel.Autopilot.Enabled does not work at this point!
                 {
-                    //Reset locked heading
+                    //Reset momentum_mode_active heading
                     vessel.Autopilot.SAS.lockedHeading = vessel.ReferenceTransform.rotation;
 
                     //Set relative rotation if there is a reference
@@ -200,9 +234,9 @@ namespace PersistentRotation
                     {
                         try
                         {
-                            if (p.rigidbody == null) continue;
-                            p.rigidbody.AddTorque(rotation * av, ForceMode.VelocityChange);
-                            p.rigidbody.AddForce(Vector3.Cross(rotation * av, (p.rigidbody.position - COM)), ForceMode.VelocityChange);
+                            if (p.GetComponent<Rigidbody>() == null) continue;
+                            p.GetComponent<Rigidbody>().AddTorque(rotation * av, ForceMode.VelocityChange);
+                            p.GetComponent<Rigidbody>().AddForce(Vector3.Cross(rotation * av, (p.GetComponent<Rigidbody>().position - COM)), ForceMode.VelocityChange);
                         }
                         catch (NullReferenceException nre)
                         {
@@ -212,7 +246,6 @@ namespace PersistentRotation
                 }
             }
         }
-
         private void PackedSpin(Vessel vessel)
         {
             if(vessel.situation != Vessel.Situations.LANDED || vessel.situation != Vessel.Situations.SPLASHED)
@@ -235,17 +268,6 @@ namespace PersistentRotation
                     vessel.Autopilot.SAS.lockedHeading = adjusted;
                 }
             }
-        }
-
-        private IEnumerator LateGenerate(Vessel vessel)
-        {
-            yield return new WaitForEndOfFrame();
-            data.Generate(vessel);
-
-            lastPosition[vessel.id.ToString()] = Vector3.zero;
-            lastActive[vessel.id.ToString()] = false;
-            lastReference[vessel.id.ToString()] = null;
-            lastTransform[vessel.id.ToString()] = vessel.ReferenceTransform;
         }
 
         public QuaternionD FromToRotation(Vector3d fromv, Vector3d tov) //Stock FromToRotation() doesn't work correctly
