@@ -134,6 +134,7 @@ namespace PersistentRotation
             }
 
             GUILayout.BeginVertical();
+
             //Minimize und Option Buttons
             GUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
@@ -274,10 +275,9 @@ namespace PersistentRotation
                 {
                     GUILayout.Label("Vessel is not controllable.");
                 }
-
-                GUILayout.EndVertical();
                 GUI.DragWindow();
             }
+            GUILayout.EndVertical();
         }
         private void BodyGUI(int windowID)
         {
