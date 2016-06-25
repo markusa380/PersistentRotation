@@ -4,6 +4,7 @@ using System.Linq;
 using System;
 using UnityEngine;
 using KSP.UI.Screens;
+using System.IO;
 
 namespace PersistentRotation
 {
@@ -26,9 +27,12 @@ namespace PersistentRotation
         int bodyGuid;
         int configGuid;
 
-        String gui_path
+        String gui_path()
         {
-            get { return KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/GUIconfig.cfg"; }
+            if (!Directory.Exists(KSPUtil.ApplicationRootPath + "/PluginData/PersistentRotation"))
+                Directory.CreateDirectory(KSPUtil.ApplicationRootPath + "/PluginData/PersistentRotation");
+
+            return KSPUtil.ApplicationRootPath + "/PluginData/PersistentRotation/GUIconfig.cfg";
         }
 
         Rect MainWindowRect;
@@ -434,13 +438,13 @@ namespace PersistentRotation
                 save.AddValue("xConfig", ConfigWindowRect.x.ToString());
                 save.AddValue("yConfig", ConfigWindowRect.y.ToString());
 
-                save.Save(gui_path);
+                save.Save(gui_path());
             }
             catch (Exception e) { Debug.Log("[PR] Saving not successful: " + e.Message); }
         }
         void LoadGUI()
         {
-            ConfigNode load = ConfigNode.Load(gui_path);
+            ConfigNode load = ConfigNode.Load(gui_path());
             if (load == null)
             {
                 Debug.Log("[PR] Cfg file is empty or not existent!");
