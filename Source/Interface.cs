@@ -29,10 +29,10 @@ namespace PersistentRotation
 
         String gui_path()
         {
-            if (!Directory.Exists(KSPUtil.ApplicationRootPath + "/PluginData/PersistentRotation"))
-                Directory.CreateDirectory(KSPUtil.ApplicationRootPath + "/PluginData/PersistentRotation");
+            if (!Directory.Exists(KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData"))
+                Directory.CreateDirectory(KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData");
 
-            return KSPUtil.ApplicationRootPath + "/PluginData/PersistentRotation/GUIconfig.cfg";
+            return KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData/GUIconfig.cfg";
         }
 
         Rect MainWindowRect;
@@ -104,7 +104,7 @@ namespace PersistentRotation
             {
                 if (showMainWindow)
                 {
-                    MainWindowRect = GUILayout.Window(mainGuid, MainWindowRect, MainGUI, "PersistentRotation 1.1");
+                    MainWindowRect = GUILayout.Window(mainGuid, MainWindowRect, MainGUI, "PersistentRotation");
                 }
                 if (showBodyWindow)
                 {

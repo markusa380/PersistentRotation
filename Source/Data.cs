@@ -14,10 +14,10 @@ namespace PersistentRotation
 
         String GetPath(int counter)
         {
-            if (!Directory.Exists(KSPUtil.ApplicationRootPath + "/PluginData/PersistentRotation"))
-                Directory.CreateDirectory(KSPUtil.ApplicationRootPath + "/PluginData/PersistentRotation");
+            if (!Directory.Exists(KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData"))
+                Directory.CreateDirectory(KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData");
 
-            return KSPUtil.ApplicationRootPath + "/PluginData/PersistentRotation/PersistentRotation_" + HighLogic.CurrentGame.Title.TrimEnd("_()SANDBOXCAREERSCIENCE".ToCharArray()).TrimEnd(' ') + "_" + counter.ToString() +".cfg";
+            return KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData/PersistentRotation_" + HighLogic.CurrentGame.Title.TrimEnd("_()SANDBOXCAREERSCIENCE".ToCharArray()).TrimEnd(' ') + "_" + counter.ToString() +".cfg";
         }
         String GetUnusedPath()
         {
