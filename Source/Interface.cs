@@ -126,6 +126,7 @@ namespace PersistentRotation
         }
         private void MainGUI(int windowID)
         {
+            Data.PRVessel v = data.FindPRVessel(activeVessel);
             Texture toggle;
 
             if (MainWindowActive)
@@ -159,7 +160,7 @@ namespace PersistentRotation
                 if (activeVessel.IsControllable)
                 {
                     GUILayout.BeginHorizontal();
-                    if (data.rotation_mode_active[activeVessel.id.ToString()])
+                    if (v.rotation_mode_active)
                         GUI.contentColor = Color.green;
                     else
                         GUI.contentColor = Color.red;
@@ -169,7 +170,7 @@ namespace PersistentRotation
                         mode = 1;
                     }
 
-                    if (data.momentum_mode_active[activeVessel.id.ToString()])
+                    if (v.momentum_mode_active)
                         GUI.contentColor = Color.green;
                     else
                         GUI.contentColor = Color.red;
@@ -196,13 +197,13 @@ namespace PersistentRotation
                                 showBodyWindow = !showBodyWindow;
                             }
 
-                            if (data.use_default_reference[activeVessel.id.ToString()])
+                            if (v.use_default_reference)
                             {
                                 GUILayout.Label("Current Reference: Default");
                             }
-                            else if (data.reference[activeVessel.id.ToString()] != null)
+                            else if (v.reference != null)
                             {
-                                GUILayout.Label("Current Reference: " + data.reference[activeVessel.id.ToString()].GetName());
+                                GUILayout.Label("Current Reference: " + v.reference.GetName());
                             }
                             else
                             {
@@ -210,24 +211,24 @@ namespace PersistentRotation
                             }
 
                             string _text = "Activate";
-                            if (data.rotation_mode_active[activeVessel.id.ToString()])
+                            if (v.rotation_mode_active)
                             {
                                 _text = "Deactivate";
                             }
 
                             if (GUILayout.Button(_text, GUILayout.ExpandWidth(true)))
                             {
-                                if(data.rotation_mode_active[activeVessel.id.ToString()] == false)
+                                if(v.rotation_mode_active == false)
                                 {
-                                    data.rotation_mode_active[activeVessel.id.ToString()] = true;
-                                    data.momentum_mode_active[activeVessel.id.ToString()] = false;
+                                    v.rotation_mode_active = true;
+                                    v.momentum_mode_active = false;
 
-                                    data.direction[activeVessel.id.ToString()] = data.reference[activeVessel.id.ToString()].GetTransform().position - activeVessel.transform.position;
-                                    data.rotation[activeVessel.id.ToString()] = activeVessel.transform.rotation;
+                                    v.direction = v.reference.GetTransform().position - activeVessel.transform.position;
+                                    v.rotation = activeVessel.transform.rotation;
                                 }
                                 else
                                 {
-                                    data.rotation_mode_active[activeVessel.id.ToString()] = false;
+                                    v.rotation_mode_active = false;
                                 }
 
                             }
@@ -246,29 +247,29 @@ namespace PersistentRotation
                             GUILayout.EndHorizontal();
                             GUILayout.Space(10f);
                             string _text = "Activate";
-                            if (data.momentum_mode_active[activeVessel.id.ToString()])
+                            if (v.momentum_mode_active)
                             {
                                 _text = "Deactivate";
                             }
 
                             if (GUILayout.Button(_text, GUILayout.ExpandWidth(true)))
                             {
-                                data.rotation_mode_active[activeVessel.id.ToString()] = false;
+                                v.rotation_mode_active = false;
 
-                                if (data.momentum_mode_active[activeVessel.id.ToString()])
+                                if (v.momentum_mode_active)
                                 {
-                                    data.momentum_mode_active[activeVessel.id.ToString()] = false;
+                                    v.momentum_mode_active = false;
                                 }
                                 else
                                 {
                                     try
                                     {
-                                        data.desired_rpm[activeVessel.id.ToString()] = float.Parse(desired_rpm_str);
-                                        data.momentum_mode_active[activeVessel.id.ToString()] = true;
+                                        v.desired_rpm = float.Parse(desired_rpm_str);
+                                        v.momentum_mode_active = true;
                                     }
                                     catch
                                     {
-                                        desired_rpm_str = data.desired_rpm[activeVessel.id.ToString()].ToString();
+                                        desired_rpm_str = v.desired_rpm.ToString();
                                     }
                                 }
                             }
@@ -285,7 +286,8 @@ namespace PersistentRotation
         }
         private void BodyGUI(int windowID)
         {
-            Vessel activeVessel = Main.instance.activeVessel;
+            //Vessel activeVessel = Main.instance.activeVessel;
+            Data.PRVessel v = data.FindPRVessel(activeVessel);
 
             GUILayout.BeginVertical();
             GUILayout.BeginHorizontal();
@@ -299,28 +301,28 @@ namespace PersistentRotation
             if (GUILayout.Button("Set", GUILayout.ExpandWidth(true)))
             {
                 if (activeVessel.targetObject.GetType() == typeof(CelestialBody) || activeVessel.targetObject.GetType() == typeof(Vessel))
-                    data.reference[activeVessel.id.ToString()] = activeVessel.targetObject;
-                data.use_default_reference[activeVessel.id.ToString()] = false;
+                    v.reference = activeVessel.targetObject;
+                v.use_default_reference = false;
             }
             if (GUILayout.Button("Unset", GUILayout.ExpandWidth(true)))
             {
-                data.reference[activeVessel.id.ToString()] = null;
-                data.use_default_reference[activeVessel.id.ToString()] = false;
+                v.reference = null;
+                v.use_default_reference = false;
             }
             GUILayout.Space(10);
             if (GUILayout.Button("Sun", GUILayout.ExpandWidth(true)))
             {
-                data.reference[activeVessel.id.ToString()] = Sun.Instance.sun;
-                data.use_default_reference[activeVessel.id.ToString()] = false;
+                v.reference = Sun.Instance.sun;
+                v.use_default_reference = false;
             }
             if (GUILayout.Button(activeVessel.mainBody.name, GUILayout.ExpandWidth(true)))
             {
-                data.reference[activeVessel.id.ToString()] = activeVessel.mainBody;
-                data.use_default_reference[activeVessel.id.ToString()] = false;
+                v.reference = activeVessel.mainBody;
+                v.use_default_reference = false;
             }
             if (GUILayout.Button("Default", GUILayout.ExpandWidth(true)))
             {
-                data.use_default_reference[activeVessel.id.ToString()] = true;
+                v.use_default_reference = true;
             }
 
             GUILayout.EndVertical();
