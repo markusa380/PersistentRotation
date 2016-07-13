@@ -75,6 +75,9 @@ namespace PersistentRotation
             public bool last_active;
             public ITargetable last_reference;
 
+            //Activity check
+            public bool processed;
+
             public PRVessel(Vessel _vessel, Vector3 _momentum, bool _rotation_mode_active, bool _use_default_reference, Quaternion _rotation, Vector3 _direction, ITargetable _reference, bool _momentum_mode_active, float _desired_rpm)
             {
                 vessel = _vessel;
@@ -86,6 +89,7 @@ namespace PersistentRotation
                 reference = _reference;
                 momentum_mode_active = _momentum_mode_active;
                 desired_rpm = _desired_rpm;
+                processed = false;
             }
         }
         public List<PRVessel> PRVessels;
@@ -96,7 +100,7 @@ namespace PersistentRotation
                 if (v.vessel == vessel)
                     return v;
             }
-            return null;
+            return SubGenerate(vessel);
         }
 
         private void Awake()
@@ -162,7 +166,7 @@ namespace PersistentRotation
 
             foreach (Vessel vessel in FlightGlobals.Vessels)
             {
-                Generate(vessel);
+                FindPRVessel(vessel);
             }
 
             //All vessels should now have data.
@@ -279,15 +283,8 @@ namespace PersistentRotation
             Interface.instance.desired_rpm_str = FindPRVessel(FlightGlobals.ActiveVessel).desired_rpm.ToString(); //Set desired rpm of active vessel
         }
 
-        public void Generate(Vessel vessel)
+        private PRVessel SubGenerate(Vessel vessel)
         {
-            PRVessel v = FindPRVessel(vessel);
-            if (v != null)
-            {
-                Debug.Log("[PR] " + vessel.vesselName + " already has data.");
-                return;
-            }
-
             //v is null, I have to generate a new PRVessel
 
             Debug.Log("[PR] Generating data for " + vessel.vesselName);
@@ -307,8 +304,9 @@ namespace PersistentRotation
                 momentum = Vector3.zero;
             }
 
-            v = new PRVessel(vessel, momentum, true, true, vessel.transform.rotation, (vessel.mainBody.position - vessel.transform.position).normalized, vessel.mainBody, false, 0f);
+            PRVessel v = new PRVessel(vessel, momentum, true, true, vessel.transform.rotation, (vessel.mainBody.position - vessel.transform.position).normalized, vessel.mainBody, false, 0f);
             PRVessels.Add(v);
+            return v;
         }
     }
-} 
+}

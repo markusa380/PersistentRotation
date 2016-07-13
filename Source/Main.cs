@@ -27,7 +27,6 @@ namespace PersistentRotation
             GameEvents.onVesselWillDestroy.Add(OnVesselWillDestroy);
             GameEvents.onGameStateSave.Add(OnGameStateSave);
         }
-
         private void Start()
         {
             activeVessel = FlightGlobals.ActiveVessel;
@@ -41,9 +40,17 @@ namespace PersistentRotation
                 Interface.instance.desired_rpm_str = data.FindPRVessel(activeVessel).desired_rpm.ToString();
             }
 
+            foreach(Data.PRVessel v in data.PRVessels)
+            {
+                v.processed = false;
+            }
+
             foreach (Vessel vessel in FlightGlobals.Vessels)
             {
                 Data.PRVessel v = data.FindPRVessel(vessel);
+
+                v.processed = true;
+
                 if(v.use_default_reference)
                 {
                     if (!v.reference.Equals(vessel.mainBody)) //Default Mode; Continous update of reference to mainBody
@@ -143,6 +150,12 @@ namespace PersistentRotation
                 v.last_transform = vessel.ReferenceTransform;
                 v.last_reference = v.reference;
             }
+
+            foreach (Data.PRVessel v in data.PRVessels)
+            {
+                if (v.processed == false)
+                    data.PRVessels.Remove(v);
+            }
         }
         private void OnDestroy()
         {
@@ -170,7 +183,6 @@ namespace PersistentRotation
         private IEnumerator LateGenerate(Vessel vessel)
         {
             yield return new WaitForEndOfFrame();
-            data.Generate(vessel);
             Data.PRVessel v = data.FindPRVessel(vessel);
 
             v.last_position = Vector3.zero;
@@ -186,8 +198,7 @@ namespace PersistentRotation
             foreach (Vessel _vessel in FlightGlobals.Vessels)
             {
                 Data.PRVessel v = data.FindPRVessel(_vessel);
-
-                if (!object.ReferenceEquals(_vessel, v))
+                if (!object.ReferenceEquals(_vessel, vessel))
                 {
                     if (object.ReferenceEquals(vessel, v.reference))
                     {
