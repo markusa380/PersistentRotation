@@ -51,12 +51,12 @@ namespace PersistentRotation
 
                 v.processed = true;
 
-                if(v.use_default_reference)
+                if(v.dynamic_reference)
                 {
-                    if (!v.reference.Equals(vessel.mainBody)) //Default Mode; Continous update of reference to mainBody
+                    if (!v.reference.Equals(vessel.mainBody)) //Default mode; continuous update of reference to mainBody
                     {
                         v.reference = vessel.mainBody;
-                        v.direction = v.reference.GetTransform().position - vessel.transform.position;
+                        v.direction = (v.reference.GetTransform().position - vessel.transform.position).normalized;
                         v.rotation = vessel.transform.rotation;
                         v.last_active = false;
                     }
@@ -121,8 +121,7 @@ namespace PersistentRotation
                     if (v.rotation_mode_active && v.reference != null) //C2
                     {
                         //Update direction
-                        v.direction = v.reference.GetTransform().position - vessel.transform.position;
-
+                        v.direction = (v.reference.GetTransform().position - vessel.transform.position).normalized;
                         if (!v.momentum_mode_active && vessel.Autopilot.Enabled && vessel.Autopilot.Mode == VesselAutopilot.AutopilotMode.StabilityAssist)
                         {
                             if (v.last_active && v.reference == v.last_reference)
@@ -151,10 +150,10 @@ namespace PersistentRotation
                 v.last_reference = v.reference;
             }
 
-            foreach (Data.PRVessel v in data.PRVessels)
+            for (int i = 0; i < data.PRVessels.Count; i++)
             {
-                if (v.processed == false)
-                    data.PRVessels.Remove(v);
+                if (data.PRVessels[i].processed == false)
+                    data.PRVessels.Remove(data.PRVessels[i]);
             }
         }
         private void OnDestroy()
@@ -219,21 +218,20 @@ namespace PersistentRotation
             {
                 if (vessel.ActionGroups[KSPActionGroup.SAS] && vessel.IsControllable && !v.momentum_mode_active && v.rotation_mode_active && v.momentum.magnitude < threshold) //vessel.Autopilot.Enabled does not work at this point!
                 {
-                    //Reset momentum_mode_active heading
-                    vessel.Autopilot.SAS.lockedHeading = vessel.ReferenceTransform.rotation;
-
                     //Set relative rotation if there is a reference
                     if (v.reference != null)
                     {
-                        vessel.SetRotation(Quaternion.FromToRotation(v.direction, v.reference.GetTransform().position - vessel.transform.position) * v.rotation);
+                        vessel.SetRotation(FromToRotation(v.direction, (v.reference.GetTransform().position - vessel.transform.position).normalized) * v.rotation);
                     }
+
+                    //Reset momentum_mode_active heading
+                    vessel.Autopilot.SAS.lockedHeading = vessel.ReferenceTransform.rotation;
                 }
                 else
                 {
                     Vector3 av = v.momentum;
                     Vector3 COM = vessel.findWorldCenterOfMass();
-                    Quaternion rotation;
-                    rotation = vessel.ReferenceTransform.rotation;
+                    Quaternion rotation = vessel.ReferenceTransform.rotation;
 
                     //Applying force on every part
                     foreach (Part p in vessel.parts)
@@ -261,7 +259,7 @@ namespace PersistentRotation
         private void PackedRotation(Data.PRVessel v)
         {
             if (v.vessel.situation != Vessel.Situations.LANDED || v.vessel.situation != Vessel.Situations.SPLASHED)
-                v.vessel.SetRotation(Quaternion.FromToRotation(v.direction, v.reference.GetTransform().position - v.vessel.transform.position) * v.rotation);
+                v.vessel.SetRotation(FromToRotation(v.direction, (v.reference.GetTransform().position - v.vessel.transform.position).normalized) * v.rotation);
         }
         private void AdjustSAS(Data.PRVessel v)
         {
@@ -277,7 +275,7 @@ namespace PersistentRotation
             }
         }
 
-        public QuaternionD FromToRotation(Vector3d fromv, Vector3d tov) //Stock FromToRotation() doesn't work correctly
+        public Quaternion FromToRotation(Vector3d fromv, Vector3d tov) //Stock FromToRotation() doesn't work correctly
         {
             Vector3d cross = Vector3d.Cross(fromv, tov);
             double dot = Vector3d.Dot(fromv, tov);

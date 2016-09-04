@@ -10,7 +10,7 @@ namespace PersistentRotation
 {
     [KSPAddon(KSPAddon.Startup.Flight, false)]
     class Interface : MonoBehaviour
-    {
+    { 
         public static Interface instance { get; private set; }
 
         private Data data;
@@ -32,7 +32,7 @@ namespace PersistentRotation
             if (!Directory.Exists(KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData"))
                 Directory.CreateDirectory(KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData");
 
-            return KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData/GUIconfig.cfg";
+            return KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData/Config.cfg";
         }
 
         Rect MainWindowRect;
@@ -197,9 +197,9 @@ namespace PersistentRotation
                                 showBodyWindow = !showBodyWindow;
                             }
 
-                            if (v.use_default_reference)
+                            if (v.dynamic_reference)
                             {
-                                GUILayout.Label("Current Reference: Default");
+                                GUILayout.Label("Current Reference: Dynamic");
                             }
                             else if (v.reference != null)
                             {
@@ -207,7 +207,7 @@ namespace PersistentRotation
                             }
                             else
                             {
-                                GUILayout.Label("Current Reference: none");
+                                GUILayout.Label("Current Reference: None");
                             }
 
                             string _text = "Activate";
@@ -223,7 +223,7 @@ namespace PersistentRotation
                                     v.rotation_mode_active = true;
                                     v.momentum_mode_active = false;
 
-                                    v.direction = v.reference.GetTransform().position - activeVessel.transform.position;
+                                    v.direction = (v.reference.GetTransform().position - activeVessel.transform.position).normalized;
                                     v.rotation = activeVessel.transform.rotation;
                                 }
                                 else
@@ -302,27 +302,28 @@ namespace PersistentRotation
             {
                 if (activeVessel.targetObject.GetType() == typeof(CelestialBody) || activeVessel.targetObject.GetType() == typeof(Vessel))
                     v.reference = activeVessel.targetObject;
-                v.use_default_reference = false;
+                v.dynamic_reference = false;
             }
             if (GUILayout.Button("Unset", GUILayout.ExpandWidth(true)))
             {
                 v.reference = null;
-                v.use_default_reference = false;
+                v.dynamic_reference = false;
             }
             GUILayout.Space(10);
             if (GUILayout.Button("Sun", GUILayout.ExpandWidth(true)))
             {
                 v.reference = Sun.Instance.sun;
-                v.use_default_reference = false;
+                v.dynamic_reference = false;
             }
             if (GUILayout.Button(activeVessel.mainBody.name, GUILayout.ExpandWidth(true)))
             {
                 v.reference = activeVessel.mainBody;
-                v.use_default_reference = false;
+                v.dynamic_reference = false;
             }
-            if (GUILayout.Button("Default", GUILayout.ExpandWidth(true)))
+            if (GUILayout.Button("Dynamic", GUILayout.ExpandWidth(true)))
             {
-                v.use_default_reference = true;
+                v.dynamic_reference = true;
+                v.reference = v.vessel.mainBody;
             }
 
             GUILayout.EndVertical();
@@ -338,19 +339,37 @@ namespace PersistentRotation
                 showConfigWindow = false;
             }
             GUILayout.EndHorizontal();
-            GUILayout.Label("Configure Visibility");
+            GUILayout.Label("GUI Visibility Mode");
+
+            if (visibility_mode == 1)
+                GUI.contentColor = Color.green;
+            else
+                GUI.contentColor = Color.red;
+
             if (GUILayout.Button("Always Visible", GUILayout.ExpandWidth(true)))
             {
                 visibility_mode = 1;
                 DeleteBlizzyToolbar();
                 DeleteStockToolbar();
             }
+
+            if (visibility_mode == 2)
+                GUI.contentColor = Color.green;
+            else
+                GUI.contentColor = Color.red;
+
             if (GUILayout.Button("Stock Toolbar", GUILayout.ExpandWidth(true)))
             {
                 visibility_mode = 2;
                 CreateStockToolbar();
                 DeleteBlizzyToolbar();
             }
+
+            if (visibility_mode == 3)
+                GUI.contentColor = Color.green;
+            else
+                GUI.contentColor = Color.red;
+
             if (ToolbarManager.ToolbarAvailable)
             {
                 if (GUILayout.Button("Blizzy's Toolbar", GUILayout.ExpandWidth(true)))
@@ -360,6 +379,34 @@ namespace PersistentRotation
                     DeleteStockToolbar();
                 }
             }
+
+            GUI.contentColor = Color.white;
+
+            GUILayout.Space(20);
+            GUILayout.Label("Default Reference Body");
+
+            if (data.default_reference_mode == Data.DefaultReferenceMode.NONE)
+                GUI.contentColor = Color.green;
+            else
+                GUI.contentColor = Color.red;
+
+            if (GUILayout.Button("None", GUILayout.ExpandWidth(true)))
+            {
+                data.default_reference_mode = Data.DefaultReferenceMode.NONE;
+            }
+
+            if (data.default_reference_mode == Data.DefaultReferenceMode.DYNAMIC)
+                GUI.contentColor = Color.green;
+            else
+                GUI.contentColor = Color.red;
+
+            if (GUILayout.Button("Dynamic", GUILayout.ExpandWidth(true)))
+            {
+                data.default_reference_mode = Data.DefaultReferenceMode.DYNAMIC;
+            }
+
+            GUI.contentColor = Color.white;
+
             GUILayout.EndVertical();
             GUI.DragWindow();
         }

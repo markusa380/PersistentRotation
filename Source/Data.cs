@@ -60,7 +60,7 @@ namespace PersistentRotation
 
             //Rotation Mode
             public bool rotation_mode_active;
-            public bool use_default_reference;
+            public bool dynamic_reference;
             public Quaternion rotation;
             public Vector3 direction;
             public ITargetable reference;
@@ -78,12 +78,12 @@ namespace PersistentRotation
             //Activity check
             public bool processed;
 
-            public PRVessel(Vessel _vessel, Vector3 _momentum, bool _rotation_mode_active, bool _use_default_reference, Quaternion _rotation, Vector3 _direction, ITargetable _reference, bool _momentum_mode_active, float _desired_rpm)
+            public PRVessel(Vessel _vessel, Vector3 _momentum, bool _rotation_mode_active, bool _dynamic_reference, Quaternion _rotation, Vector3 _direction, ITargetable _reference, bool _momentum_mode_active, float _desired_rpm)
             {
                 vessel = _vessel;
                 momentum = _momentum;
                 rotation_mode_active = _rotation_mode_active;
-                use_default_reference = _use_default_reference;
+                dynamic_reference = _dynamic_reference;
                 rotation = _rotation;
                 direction = _direction;
                 reference = _reference;
@@ -102,6 +102,14 @@ namespace PersistentRotation
             }
             return SubGenerate(vessel);
         }
+
+        public enum DefaultReferenceMode
+        {
+            NONE,
+            DYNAMIC
+        }
+
+        public DefaultReferenceMode default_reference_mode = DefaultReferenceMode.NONE;
 
         private void Awake()
         {
@@ -129,6 +137,7 @@ namespace PersistentRotation
             {
                 ConfigNode save = new ConfigNode();
                 save.AddValue("TIME", Planetarium.GetUniversalTime());
+                save.AddValue("DEFAULT_REFERENCE_MODE", ((int)default_reference_mode).ToString());
                 ConfigNode.CreateConfigFromObject(this, 0, save);
 
                 //Save values per vessel
@@ -137,7 +146,7 @@ namespace PersistentRotation
                     ConfigNode cn_vessel = save.AddNode(v.vessel.id.ToString());
                     cn_vessel.AddValue("MOMENTUM", KSPUtil.WriteVector(v.momentum));
                     cn_vessel.AddValue("ROTATION_MODE_ACTIVE", v.rotation_mode_active.ToString());
-                    cn_vessel.AddValue("USE_DEFAULT_REFERENCE", v.use_default_reference.ToString());
+                    cn_vessel.AddValue("DYNAMIC_REFERENCE", v.dynamic_reference.ToString());
                     cn_vessel.AddValue("ROTATION", KSPUtil.WriteQuaternion(v.rotation));
                     cn_vessel.AddValue("DIRECTION", KSPUtil.WriteVector(v.direction));
 
@@ -163,13 +172,6 @@ namespace PersistentRotation
         public void Load()
         {
             //This is called when all persistent rotation data is being loaded from the cfg file.
-
-            foreach (Vessel vessel in FlightGlobals.Vessels)
-            {
-                FindPRVessel(vessel);
-            }
-
-            //All vessels should now have data.
 
             #region ### Quicksave selection ###
             ConfigNode temp = null;
@@ -220,23 +222,40 @@ namespace PersistentRotation
             }
             #endregion
 
+            //Load global variables
+
+            default_reference_mode = (DefaultReferenceMode)(int.Parse(load.GetValue("DEFAULT_REFERENCE_MODE")));
+
+            //Pregenerate data for all vessels that currently exist
+
+            foreach (Vessel vessel in FlightGlobals.Vessels)
+            {
+                FindPRVessel(vessel);
+            }
+
+            //All vessels should now have data.
+
+            //Load PRVessel data
+
             foreach (PRVessel v in PRVessels)
             {
                 ConfigNode cn_vessel = load.GetNode(v.vessel.id.ToString());
 
                 if(cn_vessel != null) //If node exists at all
                 {
-                    Debug.Log("[PR] Found node for vessel " + v.vessel.name);
+                    Debug.Log("[PR] Found node for vessel " + v.vessel.vesselName);
                     v.momentum = KSPUtil.ParseVector3(cn_vessel.GetValue("MOMENTUM"));
                     v.rotation_mode_active = Boolean.Parse(cn_vessel.GetValue("ROTATION_MODE_ACTIVE"));
-                    v.use_default_reference = Boolean.Parse(cn_vessel.GetValue("USE_DEFAULT_REFERENCE"));
+                    v.dynamic_reference = Boolean.Parse(cn_vessel.GetValue("DYNAMIC_REFERENCE"));
                     v.rotation = KSPUtil.ParseQuaternion(cn_vessel.GetValue("ROTATION"));
                     v.direction = KSPUtil.ParseVector3(cn_vessel.GetValue("DIRECTION"));
 
                     string reference = cn_vessel.GetValue("REFERENCE");
+
+                    v.reference = null;
+
                     if (reference != "NONE")
                     {
-                        v.reference = null;
                         foreach (CelestialBody body in FlightGlobals.Bodies)
                         {
                             if(body.name == reference)
@@ -252,10 +271,6 @@ namespace PersistentRotation
                                 v.reference = vessel;
                             }
                         }
-                    }
-                    else
-                    {
-                        v.reference = null;
                     }
 
                     v.momentum_mode_active = Boolean.Parse(cn_vessel.GetValue("MOMENTUM_MODE_ACTIVE"));
@@ -304,7 +319,13 @@ namespace PersistentRotation
                 momentum = Vector3.zero;
             }
 
-            PRVessel v = new PRVessel(vessel, momentum, true, true, vessel.transform.rotation, (vessel.mainBody.position - vessel.transform.position).normalized, vessel.mainBody, false, 0f);
+            PRVessel v;
+
+            if(default_reference_mode == DefaultReferenceMode.DYNAMIC)
+                v = new PRVessel(vessel, momentum, true, true, vessel.transform.rotation, (vessel.mainBody.position - vessel.transform.position).normalized, vessel.mainBody, false, 0f);
+            else
+                v = new PRVessel(vessel, momentum, true, false, vessel.transform.rotation, (vessel.mainBody.position - vessel.transform.position).normalized, null, false, 0f);
+
             PRVessels.Add(v);
             return v;
         }
