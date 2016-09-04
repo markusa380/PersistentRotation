@@ -197,17 +197,19 @@ namespace PersistentRotation
                                 showBodyWindow = !showBodyWindow;
                             }
 
-                            if (v.dynamic_reference)
+
+                            if (v.reference != null)
                             {
-                                GUILayout.Label("Current Reference: Dynamic");
-                            }
-                            else if (v.reference != null)
-                            {
-                                GUILayout.Label("Current Reference: " + v.reference.GetName());
+                                if (v.dynamic_reference)
+                                {
+                                    GUILayout.Label("Reference: Dynamic (" + v.reference.GetName() + ")");
+                                }
+                                else
+                                    GUILayout.Label("Reference: " + v.reference.GetName());
                             }
                             else
                             {
-                                GUILayout.Label("Current Reference: None");
+                                GUILayout.Label("Reference: None");
                             }
 
                             string _text = "Activate";
@@ -223,8 +225,10 @@ namespace PersistentRotation
                                     v.rotation_mode_active = true;
                                     v.momentum_mode_active = false;
 
-                                    v.direction = (v.reference.GetTransform().position - activeVessel.transform.position).normalized;
+                                    if (v.reference != null)
+                                        v.direction = (v.reference.GetTransform().position - activeVessel.transform.position).normalized;
                                     v.rotation = activeVessel.transform.rotation;
+                                    v.planetarium_right = Planetarium.right;
                                 }
                                 else
                                 {
@@ -286,7 +290,6 @@ namespace PersistentRotation
         }
         private void BodyGUI(int windowID)
         {
-            //Vessel activeVessel = Main.instance.activeVessel;
             Data.PRVessel v = data.FindPRVessel(activeVessel);
 
             GUILayout.BeginVertical();
@@ -300,9 +303,17 @@ namespace PersistentRotation
             GUILayout.Label("Select target in map \nto set as reference");
             if (GUILayout.Button("Set", GUILayout.ExpandWidth(true)))
             {
-                if (activeVessel.targetObject.GetType() == typeof(CelestialBody) || activeVessel.targetObject.GetType() == typeof(Vessel))
-                    v.reference = activeVessel.targetObject;
-                v.dynamic_reference = false;
+                if (activeVessel.targetObject != null)
+                {
+                    if (activeVessel.targetObject.GetType() == typeof(CelestialBody) || activeVessel.targetObject.GetType() == typeof(Vessel))
+                        v.reference = activeVessel.targetObject;
+                    v.dynamic_reference = false;
+                }
+                else
+                {
+                    v.dynamic_reference = false;
+                    v.reference = null;
+                }
             }
             if (GUILayout.Button("Unset", GUILayout.ExpandWidth(true)))
             {
@@ -323,7 +334,7 @@ namespace PersistentRotation
             if (GUILayout.Button("Dynamic", GUILayout.ExpandWidth(true)))
             {
                 v.dynamic_reference = true;
-                v.reference = v.vessel.mainBody;
+                //v.reference = v.vessel.mainBody; --> This should not be necessary!
             }
 
             GUILayout.EndVertical();

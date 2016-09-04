@@ -53,11 +53,13 @@ namespace PersistentRotation
 
                 if(v.dynamic_reference)
                 {
-                    if (!v.reference.Equals(vessel.mainBody)) //Default mode; continuous update of reference to mainBody
+                    if (v.reference == null || ( v.reference.GetType() != typeof(CelestialBody) || v.reference.GetName() != vessel.mainBody.GetName() )) //Main body mode; continuous update of reference to mainBody
                     {
+                        Debug.Log("[PR] Updated the reference of " + v.vessel.vesselName + " from " + (v.reference != null ? v.reference.GetName() : "Null") + " to " + vessel.mainBody.name);
                         v.reference = vessel.mainBody;
                         v.direction = (v.reference.GetTransform().position - vessel.transform.position).normalized;
                         v.rotation = vessel.transform.rotation;
+                        v.planetarium_right = Planetarium.right;
                         v.last_active = false;
                     }
                 }
@@ -116,6 +118,8 @@ namespace PersistentRotation
 
                     //Update rotation
                     v.rotation = vessel.transform.rotation;
+
+                    v.planetarium_right = Planetarium.right;
 
                     //Adjust SAS for Relative Rotation
                     if (v.rotation_mode_active && v.reference != null) //C2
@@ -182,12 +186,15 @@ namespace PersistentRotation
         private IEnumerator LateGenerate(Vessel vessel)
         {
             yield return new WaitForEndOfFrame();
-            Data.PRVessel v = data.FindPRVessel(vessel);
 
-            v.last_position = Vector3.zero;
-            v.last_active = false;
-            v.last_reference = null;
-            v.last_transform = vessel.ReferenceTransform;
+            if (vessel)
+            {
+                Data.PRVessel v = data.FindPRVessel(vessel);
+                v.last_position = Vector3.zero;
+                v.last_active = false;
+                v.last_reference = null;
+                v.last_transform = vessel.ReferenceTransform;
+            }
         }
 
         private void OnVesselWillDestroy(Vessel vessel)
@@ -218,10 +225,13 @@ namespace PersistentRotation
             {
                 if (vessel.ActionGroups[KSPActionGroup.SAS] && vessel.IsControllable && !v.momentum_mode_active && v.rotation_mode_active && v.momentum.magnitude < threshold) //vessel.Autopilot.Enabled does not work at this point!
                 {
+
+                    Quaternion shift = Quaternion.Euler(0f, Vector3.Angle(Planetarium.right, v.planetarium_right), 0f);
+
                     //Set relative rotation if there is a reference
                     if (v.reference != null)
                     {
-                        vessel.SetRotation(FromToRotation(v.direction, (v.reference.GetTransform().position - vessel.transform.position).normalized) * v.rotation);
+                        vessel.SetRotation(FromToRotation(shift * v.direction, (v.reference.GetTransform().position - vessel.transform.position).normalized) * (shift * v.rotation));
                     }
 
                     //Reset momentum_mode_active heading
@@ -258,8 +268,10 @@ namespace PersistentRotation
         }
         private void PackedRotation(Data.PRVessel v)
         {
+            Quaternion shift = Quaternion.Euler(0f, Vector3.Angle(Planetarium.right, v.planetarium_right), 0f);
+
             if (v.vessel.situation != Vessel.Situations.LANDED || v.vessel.situation != Vessel.Situations.SPLASHED)
-                v.vessel.SetRotation(FromToRotation(v.direction, (v.reference.GetTransform().position - v.vessel.transform.position).normalized) * v.rotation);
+                v.vessel.SetRotation(FromToRotation(shift * v.direction, (v.reference.GetTransform().position - v.vessel.transform.position).normalized) * (shift * v.rotation));
         }
         private void AdjustSAS(Data.PRVessel v)
         {
