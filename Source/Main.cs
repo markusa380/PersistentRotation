@@ -53,8 +53,9 @@ namespace PersistentRotation
 
                 if(v.dynamic_reference)
                 {
-                    if (!v.reference.Equals(vessel.mainBody)) //Default mode; continuous update of reference to mainBody
+                    if (!v.reference.Equals(vessel.mainBody)) //Main body mode; continuous update of reference to mainBody
                     {
+                        Debug.Log("[PR] Updated the reference of " + v.vessel.vesselName + " from " + (v.reference != null ? v.reference.GetName() : "Null") + " to " + vessel.mainBody.name);
                         v.reference = vessel.mainBody;
                         v.direction = (v.reference.GetTransform().position - vessel.transform.position).normalized;
                         v.rotation = vessel.transform.rotation;

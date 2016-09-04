@@ -199,7 +199,7 @@ namespace PersistentRotation
 
                             if (v.dynamic_reference)
                             {
-                                GUILayout.Label("Current Reference: Dynamic");
+                                GUILayout.Label("Current Reference: Dynamic (" + v.reference.GetName() + ")");
                             }
                             else if (v.reference != null)
                             {
@@ -286,7 +286,6 @@ namespace PersistentRotation
         }
         private void BodyGUI(int windowID)
         {
-            //Vessel activeVessel = Main.instance.activeVessel;
             Data.PRVessel v = data.FindPRVessel(activeVessel);
 
             GUILayout.BeginVertical();
@@ -323,7 +322,7 @@ namespace PersistentRotation
             if (GUILayout.Button("Dynamic", GUILayout.ExpandWidth(true)))
             {
                 v.dynamic_reference = true;
-                v.reference = v.vessel.mainBody;
+                //v.reference = v.vessel.mainBody; --> This should not be necessary!
             }
 
             GUILayout.EndVertical();
