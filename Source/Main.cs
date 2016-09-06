@@ -3,6 +3,7 @@ using System.Collections;
 using System.Linq;
 using System;
 using UnityEngine;
+using System.Reflection;
 using PersistentRotation;
 
 namespace PersistentRotation
@@ -34,6 +35,7 @@ namespace PersistentRotation
         }
         private void FixedUpdate()
         {
+
             if (activeVessel != FlightGlobals.ActiveVessel)
             {
                 activeVessel = FlightGlobals.ActiveVessel;
@@ -47,6 +49,9 @@ namespace PersistentRotation
 
             foreach (Vessel vessel in FlightGlobals.Vessels)
             {
+
+                Debug.Log("The vessel " + vessel.vesselName + " is having SmartASS " + MechJebWrapper.SmartASS(vessel).ToString());
+
                 Data.PRVessel v = data.FindPRVessel(vessel);
 
                 v.processed = true;
@@ -294,6 +299,11 @@ namespace PersistentRotation
             double wval = dot + Math.Sqrt(fromv.sqrMagnitude * tov.sqrMagnitude);
             double norm = 1.0 / Math.Sqrt(cross.sqrMagnitude + wval * wval);
             return new QuaternionD(cross.x * norm, cross.y * norm, cross.z * norm, wval * norm);
+        }
+
+        static Type getType(string name)
+        {
+            return AssemblyLoader.loadedAssemblies.SelectMany(a => a.assembly.GetExportedTypes()).SingleOrDefault(t => t.FullName == name);
         }
     }
 }
