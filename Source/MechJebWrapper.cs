@@ -138,23 +138,23 @@ namespace PersistentRotation
             object smartAss;
             SATarget saTarget;
 
-            masterMechJeb = GetMasterMechJeb(vessel);
-
-            if (masterMechJeb == null)
-            {
-                return SATarget.OFF;
-            }
-
-            smartAss = GetComputerModule(masterMechJeb, "MechJebModuleSmartASS");
-            if (smartAss == null)
-            {
-                return SATarget.OFF;
-            }
             if (mjAvailable)
             {
+                masterMechJeb = GetMasterMechJeb(vessel);
+
+                if (masterMechJeb == null)
+                {
+                    return SATarget.OFF;
+                }
+
+                smartAss = GetComputerModule(masterMechJeb, "MechJebModuleSmartASS");
+                if (smartAss == null)
+                {
+                    return SATarget.OFF;
+                }
+
                 object activeSATarget = saTarget_t.GetValue(smartAss);
                 saTarget = saTargetMap[(int)activeSATarget];
-
                 return saTarget;
             }
             else
