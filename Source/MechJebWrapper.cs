@@ -6,8 +6,7 @@ using UnityEngine;
 
 namespace PersistentRotation
 {
-    [KSPAddon(KSPAddon.Startup.Flight, false)]
-    public class MechJebWrapper : MonoBehaviour
+    public static class MechJebWrapper
     {
         private static Type mjCore_t;
         private static FieldInfo saTarget_t;
@@ -72,7 +71,7 @@ namespace PersistentRotation
         #endregion
 
         /* MONOBEHAVIOUR METHODS */
-        void Awake()
+        public static void Initialize()
         {
             mjAvailable = false;
             try
@@ -133,7 +132,7 @@ namespace PersistentRotation
         }
 
         /* PUBLIC METHODS */
-        public static bool SmartASS(Vessel vessel)
+        public static SATarget SmartASS(Vessel vessel)
         {
             object masterMechJeb;
             object smartAss;
@@ -143,31 +142,24 @@ namespace PersistentRotation
 
             if (masterMechJeb == null)
             {
-                return false;
+                return SATarget.OFF;
             }
 
             smartAss = GetComputerModule(masterMechJeb, "MechJebModuleSmartASS");
             if (smartAss == null)
             {
-                return false;
+                return SATarget.OFF;
             }
             if (mjAvailable)
             {
                 object activeSATarget = saTarget_t.GetValue(smartAss);
                 saTarget = saTargetMap[(int)activeSATarget];
 
-                if (saTarget != SATarget.OFF)
-                {
-                    return true;
-                }
-                else
-                {
-                    return false; 
-                }
+                return saTarget;
             }
             else
             {
-                return false;
+                return SATarget.OFF;
             }
         }
 
