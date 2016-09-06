@@ -188,93 +188,83 @@ namespace PersistentRotation
 
                     if (mode == 1)
                     {
-                        if (!activeVessel.Autopilot.Enabled)
-                            GUILayout.Label("Enable SAS to use this mode!");
+                        if (GUILayout.Button("Relative Rotation", GUILayout.ExpandWidth(true)))
+                        {
+                            showBodyWindow = !showBodyWindow;
+                        }
+
+
+                        if (v.reference != null)
+                        {
+                            if (v.dynamicReference)
+                            {
+                                GUILayout.Label("Reference: Dynamic (" + v.reference.GetName() + ")");
+                            }
+                            else
+                                GUILayout.Label("Reference: " + v.reference.GetName());
+                        }
                         else
                         {
-                            if (GUILayout.Button("Relative Rotation", GUILayout.ExpandWidth(true)))
-                            {
-                                showBodyWindow = !showBodyWindow;
-                            }
+                            GUILayout.Label("Reference: None");
+                        }
 
+                        string _text = "Activate";
+                        if (v.rotationModeActive)
+                        {
+                            _text = "Deactivate";
+                        }
 
-                            if (v.reference != null)
+                        if (GUILayout.Button(_text, GUILayout.ExpandWidth(true)))
+                        {
+                            if(v.rotationModeActive == false)
                             {
-                                if (v.dynamicReference)
-                                {
-                                    GUILayout.Label("Reference: Dynamic (" + v.reference.GetName() + ")");
-                                }
-                                else
-                                    GUILayout.Label("Reference: " + v.reference.GetName());
+                                v.rotationModeActive = true;
+                                v.momentumModeActive = false;
+
+                                if (v.reference != null)
+                                    v.direction = (v.reference.GetTransform().position - activeVessel.transform.position).normalized;
+                                v.rotation = activeVessel.transform.rotation;
+                                v.planetariumRight = Planetarium.right;
                             }
                             else
                             {
-                                GUILayout.Label("Reference: None");
+                                v.rotationModeActive = false;
                             }
 
-                            string _text = "Activate";
-                            if (v.rotationModeActive)
-                            {
-                                _text = "Deactivate";
-                            }
-
-                            if (GUILayout.Button(_text, GUILayout.ExpandWidth(true)))
-                            {
-                                if(v.rotationModeActive == false)
-                                {
-                                    v.rotationModeActive = true;
-                                    v.momentumModeActive = false;
-
-                                    if (v.reference != null)
-                                        v.direction = (v.reference.GetTransform().position - activeVessel.transform.position).normalized;
-                                    v.rotation = activeVessel.transform.rotation;
-                                    v.planetariumRight = Planetarium.right;
-                                }
-                                else
-                                {
-                                    v.rotationModeActive = false;
-                                }
-
-                            }
                         }
                     }
                     else if (mode == 2)
                     {
-                        if (!activeVessel.Autopilot.Enabled)
-                            GUILayout.Label("Enable SAS to use this mode!");
-                        else
+                        GUILayout.Label("Overwrite RPM:");
+                        GUILayout.BeginHorizontal();
+                        desiredRPMstr = GUILayout.TextField(desiredRPMstr);
+                        GUILayout.Label(" RPM");
+                        GUILayout.EndHorizontal();
+                        GUILayout.Space(10f);
+                        string _text = "Activate";
+                        if (v.momentumModeActive)
                         {
-                            GUILayout.Label("Overwrite RPM:");
-                            GUILayout.BeginHorizontal();
-                            desiredRPMstr = GUILayout.TextField(desiredRPMstr);
-                            GUILayout.Label(" RPM");
-                            GUILayout.EndHorizontal();
-                            GUILayout.Space(10f);
-                            string _text = "Activate";
+                            _text = "Deactivate";
+                        }
+
+                        if (GUILayout.Button(_text, GUILayout.ExpandWidth(true)))
+                        {
+                            v.rotationModeActive = false;
+
                             if (v.momentumModeActive)
                             {
-                                _text = "Deactivate";
+                                v.momentumModeActive = false;
                             }
-
-                            if (GUILayout.Button(_text, GUILayout.ExpandWidth(true)))
+                            else
                             {
-                                v.rotationModeActive = false;
-
-                                if (v.momentumModeActive)
+                                try
                                 {
-                                    v.momentumModeActive = false;
+                                    v.desiredRPM = float.Parse(desiredRPMstr);
+                                    v.momentumModeActive = true;
                                 }
-                                else
+                                catch
                                 {
-                                    try
-                                    {
-                                        v.desiredRPM = float.Parse(desiredRPMstr);
-                                        v.momentumModeActive = true;
-                                    }
-                                    catch
-                                    {
-                                        desiredRPMstr = v.desiredRPM.ToString();
-                                    }
+                                    desiredRPMstr = v.desiredRPM.ToString();
                                 }
                             }
                         }
