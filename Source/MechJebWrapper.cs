@@ -71,8 +71,7 @@ namespace PersistentRotation
         };
         #endregion
 
-        /* ### MONOBEHAVIOUR METHODS ### */
-
+        /* MONOBEHAVIOUR METHODS */
         void Awake()
         {
             mjAvailable = false;
@@ -133,8 +132,7 @@ namespace PersistentRotation
             }
         }
 
-        /* ### PUBLIC METHODS ### */
-
+        /* PUBLIC METHODS */
         public static bool SmartASS(Vessel vessel)
         {
             object masterMechJeb;
@@ -173,8 +171,7 @@ namespace PersistentRotation
             }
         }
 
-        /* ### UTILITY ### */
-
+        /* UTILITY METHODS */
         internal static Type GetExportedType(string assemblyName, string fullTypeName)
         {
             int assyCount = AssemblyLoader.loadedAssemblies.Count;

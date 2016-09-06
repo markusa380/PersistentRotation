@@ -6,18 +6,19 @@ using UnityEngine;
 using System.Reflection;
 using PersistentRotation;
 
+//TODO: Add new value to PRVessel, that saves if SmartASS was active when it was unpacked the last time.
+
 namespace PersistentRotation
 {
     [KSPAddon(KSPAddon.Startup.Flight, false)]
     class Main : MonoBehaviour
     {
-        public const float threshold = 0.05f;
-
         public static Main instance { get; private set; }
         private Data data;
-
+        public const float threshold = 0.05f;
         public Vessel activeVessel;
 
+        /* MONOBEHAVIOUR METHODS */
         private void Awake()
         {
             instance = this;
@@ -50,7 +51,7 @@ namespace PersistentRotation
             foreach (Vessel vessel in FlightGlobals.Vessels)
             {
 
-                Debug.Log("The vessel " + vessel.vesselName + " is having SmartASS " + MechJebWrapper.SmartASS(vessel).ToString());
+                //Debug.Log("The vessel " + vessel.vesselName + " is having SmartASS " + MechJebWrapper.SmartASS(vessel).ToString());
 
                 Data.PRVessel v = data.FindPRVessel(vessel);
 
@@ -74,7 +75,7 @@ namespace PersistentRotation
                     #region ### PACKED ###
                     if (vessel.loaded) //is okay, rotation doesnt need to be persistent when rotating
                     {
-                        if (!v.momentumModeActive && vessel.Autopilot.Enabled && vessel.IsControllable && v.momentum.magnitude < threshold) //C1
+                        if (!v.momentumModeActive && (vessel.Autopilot.Enabled || v.smartASS) && vessel.IsControllable && v.momentum.magnitude < threshold) //C1
                         {
                             if (v.rotationModeActive == true && v.reference != null) //C2
                             {
@@ -98,7 +99,7 @@ namespace PersistentRotation
                 {
                     #region ### UNPACKED ###
                     //Update Momentum when unpacked
-                    if (!v.momentumModeActive && vessel.Autopilot.Enabled && vessel.IsControllable && vessel.angularVelocity.magnitude < threshold) //C1
+                    if (!v.momentumModeActive && (vessel.Autopilot.Enabled || MechJebWrapper.SmartASS(vessel)) && vessel.IsControllable && vessel.angularVelocity.magnitude < threshold) //C1
                     {
                         v.momentum = Vector3.zero;
                     }
@@ -106,9 +107,18 @@ namespace PersistentRotation
                     {
                         v.momentum = vessel.angularVelocity;
                     }
+                    //Update smartASS when unpacked
+                    if(MechJebWrapper.SmartASS(vessel))
+                    {
+                        v.smartASS = true;
+                    }
+                    else
+                    {
+                        v.smartASS = false;
+                    }
 
                     //Apply Momentum to activeVessel using Fly-By-Wire
-                    if (v.momentumModeActive && vessel.Autopilot.Enabled) //C1 \ IsControllable
+                    if (v.momentumModeActive && (vessel.Autopilot.Enabled || MechJebWrapper.SmartASS(vessel))) //C1 \ IsControllable
                     {
                         float desiredRPM = (vessel.angularVelocity.magnitude * 60f * (1f / Time.fixedDeltaTime)) / 360f;
                         if (v.desiredRPM >= 0)
@@ -131,7 +141,7 @@ namespace PersistentRotation
                     {
                         //Update direction
                         v.direction = (v.reference.GetTransform().position - vessel.transform.position).normalized;
-                        if (!v.momentumModeActive && vessel.Autopilot.Enabled && vessel.Autopilot.Mode == VesselAutopilot.AutopilotMode.StabilityAssist)
+                        if (!v.momentumModeActive && (vessel.Autopilot.Enabled || MechJebWrapper.SmartASS(vessel)) && vessel.Autopilot.Mode == VesselAutopilot.AutopilotMode.StabilityAssist)
                         {
                             if (v.lastActive && v.reference == v.lastReference)
                             {
@@ -175,6 +185,8 @@ namespace PersistentRotation
             GameEvents.onVesselWillDestroy.Remove(OnVesselWillDestroy);
             GameEvents.onGameStateSave.Remove(OnGameStateSave);
         }
+
+        /* EVENT METHODS */
         private void OnGameStateSave(ConfigNode config)
         {
             if (data)
@@ -182,26 +194,11 @@ namespace PersistentRotation
                 data.Save();
             }
         }
-
         private void OnVesselCreate(Vessel vessel)
         {
             //Wait for Vessel to be created
             StartCoroutine(LateGenerate(vessel));
         }
-        private IEnumerator LateGenerate(Vessel vessel)
-        {
-            yield return new WaitForEndOfFrame();
-
-            if (vessel) //Check if vessel was already destroyed between last and this frame
-            {
-                Data.PRVessel v = data.FindPRVessel(vessel);
-                v.lastPosition = Vector3.zero;
-                v.lastActive = false;
-                v.lastReference = null;
-                v.lastTransform = vessel.ReferenceTransform;
-            }
-        }
-
         private void OnVesselWillDestroy(Vessel vessel)
         {
             Debug.Log("[PR] Deleting " + vessel.vesselName + " as reference.");
@@ -218,7 +215,6 @@ namespace PersistentRotation
                 }
             }
         }
-
         private void OnVesselGoOnRails(Vessel vessel)
         {
              //Nothing to do here
@@ -228,7 +224,7 @@ namespace PersistentRotation
             Data.PRVessel v = data.FindPRVessel(vessel);
             if (vessel.situation != Vessel.Situations.LANDED || vessel.situation != Vessel.Situations.SPLASHED)
             {
-                if (vessel.ActionGroups[KSPActionGroup.SAS] && vessel.IsControllable && !v.momentumModeActive && v.rotationModeActive && v.momentum.magnitude < threshold) //vessel.Autopilot.Enabled does not work at this point!
+                if ((vessel.ActionGroups[KSPActionGroup.SAS] || v.smartASS) && vessel.IsControllable && !v.momentumModeActive && v.rotationModeActive && v.momentum.magnitude < threshold) //vessel.Autopilot.Enabled does not work at this point!
                 {
 
                     Quaternion shift = Quaternion.Euler(0f, Vector3.Angle(Planetarium.right, v.planetariumRight), 0f);
@@ -265,6 +261,21 @@ namespace PersistentRotation
                 }
             }
         }
+
+        /* PRIVATE METHODS */
+        private IEnumerator LateGenerate(Vessel vessel)
+        {
+            yield return new WaitForEndOfFrame();
+
+            if (vessel) //Check if vessel was already destroyed between last and this frame
+            {
+                Data.PRVessel v = data.FindPRVessel(vessel);
+                v.lastPosition = Vector3.zero;
+                v.lastActive = false;
+                v.lastReference = null;
+                v.lastTransform = vessel.ReferenceTransform;
+            }
+        }
         private void PackedSpin(Data.PRVessel v)
         {
             
@@ -292,18 +303,14 @@ namespace PersistentRotation
             }
         }
 
-        public Quaternion FromToRotation(Vector3d fromv, Vector3d tov) //Stock FromToRotation() doesn't work correctly
+        /* UTILITY METHODS */
+        private Quaternion FromToRotation(Vector3d fromv, Vector3d tov) //Stock FromToRotation() doesn't work correctly
         {
             Vector3d cross = Vector3d.Cross(fromv, tov);
             double dot = Vector3d.Dot(fromv, tov);
             double wval = dot + Math.Sqrt(fromv.sqrMagnitude * tov.sqrMagnitude);
             double norm = 1.0 / Math.Sqrt(cross.sqrMagnitude + wval * wval);
             return new QuaternionD(cross.x * norm, cross.y * norm, cross.z * norm, wval * norm);
-        }
-
-        static Type getType(string name)
-        {
-            return AssemblyLoader.loadedAssemblies.SelectMany(a => a.assembly.GetExportedTypes()).SingleOrDefault(t => t.FullName == name);
         }
     }
 }
