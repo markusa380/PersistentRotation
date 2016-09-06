@@ -13,6 +13,7 @@ namespace PersistentRotation
         private static Type mjVesselExtensions_t;
         private static DynamicMethod<Vessel> GetMasterMechJeb;
         private static DynamicMethod<object, string> GetComputerModule;
+        private static DynamicMethodBool<object> ModuleEnabled;
         static internal bool mjAvailable;
 
         #region ### MechJeb Enum Imports ###
@@ -122,6 +123,23 @@ namespace PersistentRotation
                     return;
                 }
 
+                Type mjComputerModule_t = GetExportedType("MechJeb2", "MuMech.ComputerModule");
+                if (mjComputerModule_t == null)
+                {
+                    return;
+                }
+                PropertyInfo mjModuleEnabledProperty = mjComputerModule_t.GetProperty("enabled", BindingFlags.Instance | BindingFlags.Public);
+                MethodInfo mjModuleEnabled = null;
+                if (mjModuleEnabledProperty != null)
+                {
+                    mjModuleEnabled = mjModuleEnabledProperty.GetGetMethod();
+                }
+                if (mjModuleEnabled == null)
+                {
+                    return;
+                }
+                ModuleEnabled = CreateFuncBool<object>(mjModuleEnabled);
+
 
                 mjAvailable = true;
             }
@@ -141,17 +159,11 @@ namespace PersistentRotation
             if (mjAvailable)
             {
                 masterMechJeb = GetMasterMechJeb(vessel);
-
-                if (masterMechJeb == null)
+                if(masterMechJeb == null)
                 {
                     return SATarget.OFF;
                 }
-
                 smartAss = GetComputerModule(masterMechJeb, "MechJebModuleSmartASS");
-                if (smartAss == null)
-                {
-                    return SATarget.OFF;
-                }
 
                 object activeSATarget = saTarget_t.GetValue(smartAss);
                 saTarget = saTargetMap[(int)activeSATarget];
@@ -160,6 +172,36 @@ namespace PersistentRotation
             else
             {
                 return SATarget.OFF;
+            }
+        }
+        public static bool Active(Vessel vessel)
+        {
+            object masterMechJeb;
+            object ascentAutopilot;
+            object landingAutopilot;
+            object nodeExecutor;
+            object rendezvousAutopilot;
+
+            if (mjAvailable)
+            {
+                masterMechJeb = GetMasterMechJeb(vessel);
+                if (masterMechJeb == null)
+                {
+                    return false;
+                }
+                ascentAutopilot = GetComputerModule(masterMechJeb, "MechJebModuleAscentAutopilot");
+                landingAutopilot = GetComputerModule(masterMechJeb, "MechJebModuleLandingAutopilot");
+                nodeExecutor = GetComputerModule(masterMechJeb, "MechJebModuleNodeExecutor");
+                rendezvousAutopilot = GetComputerModule(masterMechJeb, "MechJebModuleRendezvousAutopilot");
+
+                if (ModuleEnabled(ascentAutopilot) || ModuleEnabled(landingAutopilot) || ModuleEnabled(nodeExecutor) || ModuleEnabled(rendezvousAutopilot))
+                    return true;
+
+                return false;
+            }
+            else
+            {
+                return false;
             }
         }
 
@@ -189,6 +231,7 @@ namespace PersistentRotation
 
         public delegate object DynamicMethod<T>(T param0);
         public delegate object DynamicMethod<T, U>(T param0, U parmam1);
+        public delegate bool DynamicMethodBool<T>(T param0);
 
         static internal DynamicMethod<T> CreateFunc<T>(MethodInfo methodInfo)
         {
@@ -336,6 +379,71 @@ namespace PersistentRotation
 
 
             return (DynamicMethod<T, U>)dynam.CreateDelegate(typeof(DynamicMethod<T, U>));
+        }
+        static internal DynamicMethodBool<T> CreateFuncBool<T>(MethodInfo methodInfo)
+        {
+            // Up front validation:
+            ParameterInfo[] parms = methodInfo.GetParameters();
+            if (methodInfo.IsStatic)
+            {
+                if (parms.Length != 1)
+                {
+                    throw new ArgumentException("CreateFunc<T> called with static method that takes " + parms.Length + " parameters");
+                }
+
+                if (typeof(T) != parms[0].ParameterType)
+                {
+                    // What to do?
+                }
+            }
+            else
+            {
+                if (parms.Length != 0)
+                {
+                    throw new ArgumentException("CreateFunc<T, U> called with non-static method that takes " + parms.Length + " parameters");
+                }
+                // How do I validate T?
+                //if (typeof(T) != parms[0].ParameterType)
+                //{
+                //    // What to do?
+                //}
+            }
+            if (methodInfo.ReturnType != typeof(bool))
+            {
+                throw new ArgumentException("CreateFunc<T> called with method that returns void");
+            }
+
+            Type[] _argTypes = { typeof(T) };
+
+            // Create dynamic method and obtain its IL generator to
+            // inject code.
+            DynamicMethod dynam =
+                new DynamicMethod(
+                "", // name - don't care
+                methodInfo.ReturnType, // return type
+                _argTypes, // argument types
+                typeof(MechJebWrapper));
+            ILGenerator il = dynam.GetILGenerator();
+
+            il.Emit(OpCodes.Ldarg_0);
+
+            // Perform actual call.
+            // If method is not final a callvirt is required
+            // otherwise a normal call will be emitted.
+            if (methodInfo.IsFinal)
+            {
+                il.Emit(OpCodes.Call, methodInfo);
+            }
+            else
+            {
+                il.Emit(OpCodes.Callvirt, methodInfo);
+            }
+
+            // Emit return opcode.
+            il.Emit(OpCodes.Ret);
+
+
+            return (DynamicMethodBool<T>)dynam.CreateDelegate(typeof(DynamicMethodBool<T>));
         }
     }
 }

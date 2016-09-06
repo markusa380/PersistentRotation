@@ -1,14 +1,7 @@
-﻿using System.Collections.Generic;
-using System.Collections;
-using System.Linq;
+﻿using System.Collections;
 using System;
 using UnityEngine;
-using System.Reflection;
-using PersistentRotation;
 
-//TODO: Add new value to PRVessel, that saves if SmartASS was active when it was unpacked the last time.
-
-//Absolute rotation when saTarget is 
 namespace PersistentRotation
 {
     [KSPAddon(KSPAddon.Startup.Flight, false)]
@@ -18,7 +11,6 @@ namespace PersistentRotation
         private Data data;
         public const float threshold = 0.05f;
         public Vessel activeVessel;
-        public MechJebWrapper.SATarget[] MJabsoluteMode = new MechJebWrapper.SATarget[] { MechJebWrapper.SATarget.KILLROT, MechJebWrapper.SATarget.NODE };
 
         /* MONOBEHAVIOUR METHODS */
         private void Awake()
@@ -40,7 +32,6 @@ namespace PersistentRotation
         }
         private void FixedUpdate()
         {
-
             if (activeVessel != FlightGlobals.ActiveVessel)
             {
                 activeVessel = FlightGlobals.ActiveVessel;
@@ -54,8 +45,6 @@ namespace PersistentRotation
 
             foreach (Vessel vessel in FlightGlobals.Vessels)
             {
-
-                //Debug.Log("The vessel " + vessel.vesselName + " is having SmartASS " + MechJebWrapper.SmartASS(vessel).ToString());
 
                 Data.PRVessel v = data.FindPRVessel(vessel);
 
@@ -79,9 +68,9 @@ namespace PersistentRotation
                     #region ### PACKED ###
                     if (vessel.loaded) //is okay, rotation doesnt need to be persistent when rotating
                     {
-                        if(!MJabsoluteMode.Contains<MechJebWrapper.SATarget>(v.smartASS)) //if absolute mode is not required
+                        if (GetMode(vessel) != StabilityMode.ABSOLUTE)
                         {
-                            if (!v.momentumModeActive && (vessel.Autopilot.Enabled || v.smartASS != MechJebWrapper.SATarget.OFF) && vessel.IsControllable && v.momentum.magnitude < threshold)
+                            if (GetMode(vessel) == StabilityMode.RELATIVE && v.rotationModeActive && !v.momentumModeActive && v.momentum.magnitude < threshold)
                             {
                                 if (v.rotationModeActive == true && v.reference != null)
                                 {
@@ -93,9 +82,9 @@ namespace PersistentRotation
                             }
                             else
                             {
-                                PackedSpin(v); //NOT CONTROLLABLE
+                                PackedSpin(v);
                             }
-                        } //else absolute rotation
+                        }
                     }
 
                     v.lastActive = false;
@@ -106,7 +95,7 @@ namespace PersistentRotation
                 {
                     #region ### UNPACKED ###
                     //Update Momentum when unpacked
-                    if (!v.momentumModeActive && (vessel.Autopilot.Enabled || MechJebWrapper.SmartASS(vessel) != MechJebWrapper.SATarget.OFF) && vessel.IsControllable && vessel.angularVelocity.magnitude < threshold) //C1
+                    if (GetMode(vessel) != StabilityMode.OFF && !v.momentumModeActive && vessel.IsControllable && vessel.angularVelocity.magnitude < threshold) //C1
                     {
                         v.momentum = Vector3.zero;
                     }
@@ -118,7 +107,7 @@ namespace PersistentRotation
                     v.smartASS = MechJebWrapper.SmartASS(vessel);
 
                     //Apply Momentum to activeVessel using Fly-By-Wire
-                    if (v.momentumModeActive && vessel.Autopilot.Enabled && MechJebWrapper.SmartASS(vessel) == MechJebWrapper.SATarget.OFF) //C1 \ IsControllable
+                    if (GetMode(vessel) == StabilityMode.RELATIVE && v.momentumModeActive) //C1 \ IsControllable
                     {
                         float desiredRPM = (vessel.angularVelocity.magnitude * 60f * (1f / Time.fixedDeltaTime)) / 360f;
                         if (v.desiredRPM >= 0)
@@ -141,7 +130,7 @@ namespace PersistentRotation
                     {
                         //Update direction
                         v.direction = (v.reference.GetTransform().position - vessel.transform.position).normalized;
-                        if (!v.momentumModeActive && vessel.Autopilot.Enabled && MechJebWrapper.SmartASS(vessel) == MechJebWrapper.SATarget.OFF && vessel.Autopilot.Mode == VesselAutopilot.AutopilotMode.StabilityAssist)
+                        if (GetMode(vessel) == StabilityMode.RELATIVE && !v.momentumModeActive)
                         {
                             if (v.lastActive && v.reference == v.lastReference)
                             {
@@ -224,38 +213,41 @@ namespace PersistentRotation
             Data.PRVessel v = data.FindPRVessel(vessel);
             if (vessel.situation != Vessel.Situations.LANDED || vessel.situation != Vessel.Situations.SPLASHED)
             {
-                if (vessel.ActionGroups[KSPActionGroup.SAS] && v.smartASS == MechJebWrapper.SATarget.OFF && vessel.IsControllable && !v.momentumModeActive && v.rotationModeActive && v.momentum.magnitude < threshold) //vessel.Autopilot.Enabled does not work at this point!
+                if (GetMode(vessel) != StabilityMode.ABSOLUTE)
                 {
-
-                    Quaternion shift = Quaternion.Euler(0f, Vector3.Angle(Planetarium.right, v.planetariumRight), 0f);
-
-                    //Set relative rotation if there is a reference
-                    if (v.reference != null)
+                    if (GetMode(vessel) == StabilityMode.RELATIVE && !v.momentumModeActive && v.rotationModeActive && v.momentum.magnitude < threshold)
                     {
-                        vessel.SetRotation(FromToRotation(shift * v.direction, (v.reference.GetTransform().position - vessel.transform.position).normalized) * (shift * v.rotation));
-                    }
 
-                    //Reset momentumModeActive heading
-                    vessel.Autopilot.SAS.lockedHeading = vessel.ReferenceTransform.rotation;
-                }
-                else
-                {
-                    Vector3 av = v.momentum;
-                    Vector3 COM = vessel.findWorldCenterOfMass();
-                    Quaternion rotation = vessel.ReferenceTransform.rotation;
+                        Quaternion shift = Quaternion.Euler(0f, Vector3.Angle(Planetarium.right, v.planetariumRight), 0f);
 
-                    //Applying force on every part
-                    foreach (Part p in vessel.parts)
-                    {
-                        try
+                        //Set relative rotation if there is a reference
+                        if (v.reference != null)
                         {
-                            if (p.GetComponent<Rigidbody>() == null) continue;
-                            p.GetComponent<Rigidbody>().AddTorque(rotation * av, ForceMode.VelocityChange);
-                            p.GetComponent<Rigidbody>().AddForce(Vector3.Cross(rotation * av, (p.GetComponent<Rigidbody>().position - COM)), ForceMode.VelocityChange);
+                            vessel.SetRotation(FromToRotation(shift * v.direction, (v.reference.GetTransform().position - vessel.transform.position).normalized) * (shift * v.rotation));
                         }
-                        catch (NullReferenceException nre)
+
+                        //Reset momentumModeActive heading
+                        vessel.Autopilot.SAS.lockedHeading = vessel.ReferenceTransform.rotation;
+                    }
+                    else
+                    {
+                        Vector3 av = v.momentum;
+                        Vector3 COM = vessel.findWorldCenterOfMass();
+                        Quaternion rotation = vessel.ReferenceTransform.rotation;
+
+                        //Applying force on every part
+                        foreach (Part p in vessel.parts)
                         {
-                            Debug.Log("[PR] NullReferenceException in OnVesselGoOffRails: " + nre.Message);
+                            try
+                            {
+                                if (p.GetComponent<Rigidbody>() == null) continue;
+                                p.GetComponent<Rigidbody>().AddTorque(rotation * av, ForceMode.VelocityChange);
+                                p.GetComponent<Rigidbody>().AddForce(Vector3.Cross(rotation * av, (p.GetComponent<Rigidbody>().position - COM)), ForceMode.VelocityChange);
+                            }
+                            catch (NullReferenceException nre)
+                            {
+                                Debug.Log("[PR] NullReferenceException in OnVesselGoOffRails: " + nre.Message);
+                            }
                         }
                     }
                 }
@@ -310,6 +302,34 @@ namespace PersistentRotation
             double wval = dot + Math.Sqrt(fromv.sqrMagnitude * tov.sqrMagnitude);
             double norm = 1.0 / Math.Sqrt(cross.sqrMagnitude + wval * wval);
             return new QuaternionD(cross.x * norm, cross.y * norm, cross.z * norm, wval * norm);
+        }
+        private enum StabilityMode
+        {
+            OFF,
+            ABSOLUTE,
+            RELATIVE
+        }
+        private StabilityMode GetMode(Vessel vessel)
+        {
+            if (vessel.IsControllable == false)
+                return StabilityMode.OFF; /* Vessel is uncontrollable */
+            else if (MechJebWrapper.Active(vessel))
+                return StabilityMode.ABSOLUTE; /* MechJeb is commanding the vessel */
+            else if (vessel.ActionGroups[KSPActionGroup.SAS] && data.FindPRVessel(vessel).smartASS == MechJebWrapper.SATarget.OFF && MechJebWrapper.SmartASS(vessel) == MechJebWrapper.SATarget.OFF)
+            {
+                /* Only stock SAS is enabled */
+
+                if (vessel.Autopilot.Mode == VesselAutopilot.AutopilotMode.StabilityAssist)
+                    return StabilityMode.RELATIVE;
+                else
+                    return StabilityMode.ABSOLUTE;
+            }
+            else if (!vessel.ActionGroups[KSPActionGroup.SAS] && (data.FindPRVessel(vessel).smartASS != MechJebWrapper.SATarget.OFF || MechJebWrapper.SmartASS(vessel) != MechJebWrapper.SATarget.OFF))
+                return StabilityMode.ABSOLUTE; /* Only SmartA.S.S. is enabled */
+            else if (!vessel.ActionGroups[KSPActionGroup.SAS] && data.FindPRVessel(vessel).smartASS == MechJebWrapper.SATarget.OFF && MechJebWrapper.SmartASS(vessel) == MechJebWrapper.SATarget.OFF)
+                return StabilityMode.OFF; /* Nothing is enabled */
+            else
+                return StabilityMode.OFF;
         }
     }
 }
