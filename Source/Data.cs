@@ -17,7 +17,10 @@ namespace PersistentRotation
             public Vessel vessel;
             public Vector3 momentum;
             public Vector3 planetariumRight;
-            public MechJebWrapper.SATarget smartASS;
+
+            //Other Mods
+            public MechJebWrapper.SATarget mjMode;
+            public RemoteTechWrapper.ACFlightMode rtMode;
 
             //Rotation Mode
             public bool rotationModeActive;
@@ -39,12 +42,13 @@ namespace PersistentRotation
             //Activity check
             public bool processed;
 
-            public PRVessel(Vessel _vessel, Vector3 _momentum, MechJebWrapper.SATarget _smartASS, Vector3 _planetariumRight, bool _rotationModeActive, bool _dynamicReference, Quaternion _rotation, Vector3 _direction, ITargetable _reference, bool _momentumModeActive, float _desiredRPM)
+            public PRVessel(Vessel _vessel, Vector3 _momentum, MechJebWrapper.SATarget _mjMode, RemoteTechWrapper.ACFlightMode _rtMode, Vector3 _planetariumRight, bool _rotationModeActive, bool _dynamicReference, Quaternion _rotation, Vector3 _direction, ITargetable _reference, bool _momentumModeActive, float _desiredRPM)
             {
                 vessel = _vessel;
                 momentum = _momentum;
                 planetariumRight = _planetariumRight;
-                smartASS = _smartASS;
+                mjMode = _mjMode;
+                rtMode = _rtMode;
                 rotationModeActive = _rotationModeActive;
                 dynamicReference = _dynamicReference;
                 rotation = _rotation;
@@ -100,7 +104,10 @@ namespace PersistentRotation
                     ConfigNode cn_vessel = save.AddNode(v.vessel.id.ToString());
                     cn_vessel.AddValue("MOMENTUM", KSPUtil.WriteVector(v.momentum));
                     cn_vessel.AddValue("PLANETARIUM_RIGHT", KSPUtil.WriteVector(v.planetariumRight));
-                    cn_vessel.AddValue("SMARTASS", ((int)(v.smartASS)).ToString());
+
+                    cn_vessel.AddValue("MJMODE", ((int)(v.mjMode)).ToString());
+                    cn_vessel.AddValue("RTMODE", ((int)(v.rtMode)).ToString());
+
                     cn_vessel.AddValue("ROTATION_MODE_ACTIVE", v.rotationModeActive.ToString());
                     cn_vessel.AddValue("DYNAMIC_REFERENCE", v.dynamicReference.ToString());
                     cn_vessel.AddValue("ROTATION", KSPUtil.WriteQuaternion(v.rotation));
@@ -204,7 +211,8 @@ namespace PersistentRotation
                     Debug.Log("[PR] Found node for vessel " + v.vessel.vesselName);
                     v.momentum = KSPUtil.ParseVector3(cn_vessel.GetValue("MOMENTUM"));
                     v.planetariumRight = KSPUtil.ParseVector3(cn_vessel.GetValue("PLANETARIUM_RIGHT"));
-                    v.smartASS = (MechJebWrapper.SATarget)int.Parse(cn_vessel.GetValue("SMARTASS"));
+                    v.mjMode = MechJebWrapper.saTargetMap[int.Parse(cn_vessel.GetValue("MJMODE"))];
+                    v.rtMode = RemoteTechWrapper.acFlightModeMap[int.Parse(cn_vessel.GetValue("RTMODE"))];
                     v.rotationModeActive = Boolean.Parse(cn_vessel.GetValue("ROTATION_MODE_ACTIVE"));
                     v.dynamicReference = Boolean.Parse(cn_vessel.GetValue("DYNAMIC_REFERENCE"));
                     v.rotation = KSPUtil.ParseQuaternion(cn_vessel.GetValue("ROTATION"));
@@ -295,9 +303,9 @@ namespace PersistentRotation
             PRVessel v;
 
             if(defaultReferenceMode == DefaultReferenceMode.DYNAMIC)
-                v = new PRVessel(vessel, momentum, MechJebWrapper.SATarget.OFF, Planetarium.right, true, true, vessel.transform.rotation, (vessel.mainBody.position - vessel.transform.position).normalized, vessel.mainBody, false, 0f);
+                v = new PRVessel(vessel, momentum, MechJebWrapper.SATarget.OFF, RemoteTechWrapper.ACFlightMode.Off, Planetarium.right, true, true, vessel.transform.rotation, (vessel.mainBody.position - vessel.transform.position).normalized, vessel.mainBody, false, 0f);
             else
-                v = new PRVessel(vessel, momentum, MechJebWrapper.SATarget.OFF, Planetarium.right, true, false, vessel.transform.rotation, (vessel.mainBody.position - vessel.transform.position).normalized, null, false, 0f);
+                v = new PRVessel(vessel, momentum, MechJebWrapper.SATarget.OFF, RemoteTechWrapper.ACFlightMode.Off, Planetarium.right, true, false, vessel.transform.rotation, (vessel.mainBody.position - vessel.transform.position).normalized, null, false, 0f);
 
             PRVessels.Add(v);
             return v;

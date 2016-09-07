@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Reflection.Emit;
 using UnityEngine;
 
 namespace PersistentRotation
@@ -11,9 +10,9 @@ namespace PersistentRotation
         private static Type mjCore_t;
         private static FieldInfo saTarget_t;
         private static Type mjVesselExtensions_t;
-        private static DynamicMethod<Vessel> GetMasterMechJeb;
-        private static DynamicMethod<object, string> GetComputerModule;
-        private static DynamicMethodBool<object> ModuleEnabled;
+        private static Reflection.DynamicMethod<Vessel> GetMasterMechJeb;
+        private static Reflection.DynamicMethod<object, string> GetComputerModule;
+        private static Reflection.DynamicMethodBool<object> ModuleEnabled;
         static internal bool mjAvailable;
 
         #region ### MechJeb Enum Imports ###
@@ -43,7 +42,7 @@ namespace PersistentRotation
             HORIZONTAL_MINUS = 21,
             VERTICAL_PLUS = 22,
         }
-        static private Dictionary<int, SATarget> saTargetMap = new Dictionary<int, SATarget>
+        static public Dictionary<int, SATarget> saTargetMap = new Dictionary<int, SATarget>
         {
             { 0, SATarget.OFF },
             { 1, SATarget.KILLROT },
@@ -77,19 +76,19 @@ namespace PersistentRotation
             mjAvailable = false;
             try
             {
-                mjCore_t = GetExportedType("MechJeb2", "MuMech.MechJebCore");
+                mjCore_t = Reflection.GetExportedType("MechJeb2", "MuMech.MechJebCore");
                 if (mjCore_t == null)
                 {
                     return;
                 }
 
-                mjVesselExtensions_t = GetExportedType("MechJeb2", "MuMech.VesselExtensions");
+                mjVesselExtensions_t = Reflection.GetExportedType("MechJeb2", "MuMech.VesselExtensions");
                 if (mjVesselExtensions_t == null)
                 {
                     return;
                 }
 
-                Type mjModuleSmartass_t = GetExportedType("MechJeb2", "MuMech.MechJebModuleSmartASS");
+                Type mjModuleSmartass_t = Reflection.GetExportedType("MechJeb2", "MuMech.MechJebModuleSmartASS");
                 if (mjModuleSmartass_t == null)
                 {
                     return;
@@ -106,7 +105,7 @@ namespace PersistentRotation
                 {
                     return;
                 }
-                GetMasterMechJeb = CreateFunc<Vessel>(GetMasterMechJeb_t);
+                GetMasterMechJeb = Reflection.CreateFunc<Vessel>(GetMasterMechJeb_t);
                 if (GetMasterMechJeb == null)
                 {
                     return;
@@ -117,13 +116,13 @@ namespace PersistentRotation
                 {
                     return;
                 }
-                GetComputerModule = CreateFunc<object, string>(GetComputerModule_t);
+                GetComputerModule = Reflection.CreateFunc<object, string>(GetComputerModule_t);
                 if (GetComputerModule == null)
                 {
                     return;
                 }
 
-                Type mjComputerModule_t = GetExportedType("MechJeb2", "MuMech.ComputerModule");
+                Type mjComputerModule_t = Reflection.GetExportedType("MechJeb2", "MuMech.ComputerModule");
                 if (mjComputerModule_t == null)
                 {
                     return;
@@ -138,10 +137,11 @@ namespace PersistentRotation
                 {
                     return;
                 }
-                ModuleEnabled = CreateFuncBool<object>(mjModuleEnabled);
+                ModuleEnabled = Reflection.CreateFuncBool<object>(mjModuleEnabled);
 
 
                 mjAvailable = true;
+                Debug.Log("[PR] MechJeb reflection successfull!");
             }
             catch
             {
@@ -150,7 +150,7 @@ namespace PersistentRotation
         }
 
         /* PUBLIC METHODS */
-        public static SATarget SmartASS(Vessel vessel)
+        public static SATarget GetMode(Vessel vessel)
         {
             object masterMechJeb;
             object smartAss;
@@ -203,247 +203,6 @@ namespace PersistentRotation
             {
                 return false;
             }
-        }
-
-        /* UTILITY METHODS */
-        internal static Type GetExportedType(string assemblyName, string fullTypeName)
-        {
-            int assyCount = AssemblyLoader.loadedAssemblies.Count;
-            for (int assyIndex = 0; assyIndex < assyCount; ++assyIndex)
-            {
-                AssemblyLoader.LoadedAssembly assy = AssemblyLoader.loadedAssemblies[assyIndex];
-                if (assy.name == assemblyName)
-                {
-                    Type[] exportedTypes = assy.assembly.GetExportedTypes();
-                    int typeCount = exportedTypes.Length;
-                    for (int typeIndex = 0; typeIndex < typeCount; ++typeIndex)
-                    {
-                        if (exportedTypes[typeIndex].FullName == fullTypeName)
-                        {
-                            return exportedTypes[typeIndex];
-                        }
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        public delegate object DynamicMethod<T>(T param0);
-        public delegate object DynamicMethod<T, U>(T param0, U parmam1);
-        public delegate bool DynamicMethodBool<T>(T param0);
-
-        static internal DynamicMethod<T> CreateFunc<T>(MethodInfo methodInfo)
-        {
-            // Up front validation:
-            ParameterInfo[] parms = methodInfo.GetParameters();
-            if (methodInfo.IsStatic)
-            {
-                if (parms.Length != 1)
-                {
-                    throw new ArgumentException("CreateFunc<T> called with static method that takes " + parms.Length + " parameters");
-                }
-
-                if (typeof(T) != parms[0].ParameterType)
-                {
-                    // What to do?
-                }
-            }
-            else
-            {
-                if (parms.Length != 0)
-                {
-                    throw new ArgumentException("CreateFunc<T> called with non-static method that takes " + parms.Length + " parameters");
-                }
-            }
-
-            Type[] _argTypes = { typeof(T) };
-
-            // Create dynamic method and obtain its IL generator to
-            // inject code.
-            DynamicMethod dynam =
-                new DynamicMethod(
-                "", // name - don't care
-                typeof(object), // return type
-                _argTypes, // argument types
-                typeof(MechJebWrapper));
-            ILGenerator il = dynam.GetILGenerator();
-
-            il.Emit(OpCodes.Ldarg_0);
-
-            // Perform actual call.
-            // If method is not final a callvirt is required
-            // otherwise a normal call will be emitted.
-            if (methodInfo.IsFinal)
-            {
-                il.Emit(OpCodes.Call, methodInfo);
-            }
-            else
-            {
-                il.Emit(OpCodes.Callvirt, methodInfo);
-            }
-
-            if (methodInfo.ReturnType != typeof(void))
-            {
-                // If result is of value type it needs to be boxed
-                if (methodInfo.ReturnType.IsValueType)
-                {
-                    il.Emit(OpCodes.Box, methodInfo.ReturnType);
-                }
-            }
-            else
-            {
-                il.Emit(OpCodes.Ldnull);
-            }
-
-            // Emit return opcode.
-            il.Emit(OpCodes.Ret);
-
-
-            return (DynamicMethod<T>)dynam.CreateDelegate(typeof(DynamicMethod<T>));
-        }
-        static internal DynamicMethod<T, U> CreateFunc<T, U>(MethodInfo methodInfo)
-        {
-            // Up front validation:
-            ParameterInfo[] parms = methodInfo.GetParameters();
-            if (methodInfo.IsStatic)
-            {
-                if (parms.Length != 2)
-                {
-                    throw new ArgumentException("CreateFunc<T, U> called with static method that takes " + parms.Length + " parameters");
-                }
-
-                if (typeof(T) != parms[0].ParameterType)
-                {
-                    // What to do?
-                }
-                if (typeof(U) != parms[1].ParameterType)
-                {
-                    // What to do?
-                }
-            }
-            else
-            {
-                if (parms.Length != 1)
-                {
-                    throw new ArgumentException("CreateFunc<T, U> called with non-static method that takes " + parms.Length + " parameters");
-                }
-                if (typeof(U) != parms[0].ParameterType)
-                {
-                    // What to do?
-                }
-            }
-
-            Type[] _argTypes = { typeof(T), typeof(U) };
-
-            // Create dynamic method and obtain its IL generator to
-            // inject code.
-            DynamicMethod dynam =
-                new DynamicMethod(
-                "", // name - don't care
-                typeof(object), // return type
-                _argTypes, // argument types
-                typeof(MechJebWrapper));
-            ILGenerator il = dynam.GetILGenerator();
-
-            il.Emit(OpCodes.Ldarg_0);
-            il.Emit(OpCodes.Ldarg_1);
-
-            // Perform actual call.
-            // If method is not final a callvirt is required
-            // otherwise a normal call will be emitted.
-            if (methodInfo.IsFinal)
-            {
-                il.Emit(OpCodes.Call, methodInfo);
-            }
-            else
-            {
-                il.Emit(OpCodes.Callvirt, methodInfo);
-            }
-
-            if (methodInfo.ReturnType != typeof(void))
-            {
-                // If result is of value type it needs to be boxed
-                if (methodInfo.ReturnType.IsValueType)
-                {
-                    il.Emit(OpCodes.Box, methodInfo.ReturnType);
-                }
-            }
-            else
-            {
-                il.Emit(OpCodes.Ldnull);
-            }
-
-            // Emit return opcode.
-            il.Emit(OpCodes.Ret);
-
-
-            return (DynamicMethod<T, U>)dynam.CreateDelegate(typeof(DynamicMethod<T, U>));
-        }
-        static internal DynamicMethodBool<T> CreateFuncBool<T>(MethodInfo methodInfo)
-        {
-            // Up front validation:
-            ParameterInfo[] parms = methodInfo.GetParameters();
-            if (methodInfo.IsStatic)
-            {
-                if (parms.Length != 1)
-                {
-                    throw new ArgumentException("CreateFunc<T> called with static method that takes " + parms.Length + " parameters");
-                }
-
-                if (typeof(T) != parms[0].ParameterType)
-                {
-                    // What to do?
-                }
-            }
-            else
-            {
-                if (parms.Length != 0)
-                {
-                    throw new ArgumentException("CreateFunc<T, U> called with non-static method that takes " + parms.Length + " parameters");
-                }
-                // How do I validate T?
-                //if (typeof(T) != parms[0].ParameterType)
-                //{
-                //    // What to do?
-                //}
-            }
-            if (methodInfo.ReturnType != typeof(bool))
-            {
-                throw new ArgumentException("CreateFunc<T> called with method that returns void");
-            }
-
-            Type[] _argTypes = { typeof(T) };
-
-            // Create dynamic method and obtain its IL generator to
-            // inject code.
-            DynamicMethod dynam =
-                new DynamicMethod(
-                "", // name - don't care
-                methodInfo.ReturnType, // return type
-                _argTypes, // argument types
-                typeof(MechJebWrapper));
-            ILGenerator il = dynam.GetILGenerator();
-
-            il.Emit(OpCodes.Ldarg_0);
-
-            // Perform actual call.
-            // If method is not final a callvirt is required
-            // otherwise a normal call will be emitted.
-            if (methodInfo.IsFinal)
-            {
-                il.Emit(OpCodes.Call, methodInfo);
-            }
-            else
-            {
-                il.Emit(OpCodes.Callvirt, methodInfo);
-            }
-
-            // Emit return opcode.
-            il.Emit(OpCodes.Ret);
-
-
-            return (DynamicMethodBool<T>)dynam.CreateDelegate(typeof(DynamicMethodBool<T>));
         }
     }
 }
