@@ -218,7 +218,7 @@ namespace PersistentRotation
             Data.PRVessel v = data.FindPRVessel(vessel);
             if (vessel.situation != Vessel.Situations.LANDED || vessel.situation != Vessel.Situations.SPLASHED)
             {
-                if(v.rotationModeActive && v.momentum.magnitude < threshold)
+                if(v.rotationModeActive && v.momentum.magnitude > threshold)
                 {
                     ApplyMomentum(v);
                 }
