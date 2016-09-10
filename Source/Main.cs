@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System;
 using UnityEngine;
+using System.Collections.Generic;
 
 namespace PersistentRotation
 {
@@ -19,7 +20,6 @@ namespace PersistentRotation
 
             GameEvents.onVesselGoOnRails.Add(OnVesselGoOnRails);
             GameEvents.onVesselGoOffRails.Add(OnVesselGoOffRails);
-            GameEvents.onVesselCreate.Add(OnVesselCreate);
             GameEvents.onVesselWillDestroy.Add(OnVesselWillDestroy);
             GameEvents.onGameStateSave.Add(OnGameStateSave);
         }
@@ -39,20 +39,20 @@ namespace PersistentRotation
                 Interface.instance.desiredRPMstr = data.FindPRVessel(activeVessel).desiredRPM.ToString();
             }
 
-            foreach(Data.PRVessel v in data.PRVessels)
+            foreach (Data.PRVessel v in data.PRVessels)
             {
                 v.processed = false;
             }
 
+            #region ### Cycle through all vessels ###
             foreach (Vessel vessel in FlightGlobals.Vessels)
             {
                 Data.PRVessel v = data.FindPRVessel(vessel);
 
                 v.processed = true;
-
-                if(v.dynamicReference)
+                if (v.dynamicReference)
                 {
-                    if (v.reference == null || ( v.reference.GetType() != typeof(CelestialBody) || v.reference.GetName() != vessel.mainBody.GetName() )) //Main body mode; continuous update of reference to mainBody
+                    if (v.reference == null || (v.reference.GetType() != typeof(CelestialBody) || v.reference.GetName() != vessel.mainBody.GetName())) //Main body mode; continuous update of reference to mainBody
                     {
                         Debug.Log("[PR] Updated the reference of " + v.vessel.vesselName + " from " + (v.reference != null ? v.reference.GetName() : "Null") + " to " + vessel.mainBody.name);
                         v.reference = vessel.mainBody;
@@ -62,17 +62,16 @@ namespace PersistentRotation
                         v.lastActive = false;
                     }
                 }
-
                 if (vessel.packed)
                 {
                     #region ### PACKED ###
                     if (vessel.loaded) //is okay, rotation doesnt need to be persistent when rotating
                     {
-                        if(v.momentum.magnitude >= threshold)
+                        if (v.momentum.magnitude >= threshold)
                         {
                             PackedSpin(v);
                         }
-                        else if (GetStabilityMode(vessel) != StabilityMode.ABSOLUTE )
+                        else if (GetStabilityMode(vessel) != StabilityMode.ABSOLUTE)
                         {
                             if (GetStabilityMode(vessel) == StabilityMode.RELATIVE && v.rotationModeActive && !v.momentumModeActive && v.momentum.magnitude < threshold)
                             {
@@ -162,12 +161,9 @@ namespace PersistentRotation
                 v.lastTransform = vessel.ReferenceTransform;
                 v.lastReference = v.reference;
             }
+            #endregion
 
-            for (int i = 0; i < data.PRVessels.Count; i++)
-            {
-                if (data.PRVessels[i].processed == false)
-                    data.PRVessels.Remove(data.PRVessels[i]);
-            }
+            data.PRVessels.RemoveAll(v => v.processed == false);
         }
         private void OnDestroy()
         {
@@ -175,7 +171,6 @@ namespace PersistentRotation
             //Unbind functions from GameEvents
             GameEvents.onVesselGoOnRails.Remove(OnVesselGoOnRails);
             GameEvents.onVesselGoOffRails.Remove(OnVesselGoOffRails);
-            GameEvents.onVesselCreate.Remove(OnVesselCreate);
             GameEvents.onVesselWillDestroy.Remove(OnVesselWillDestroy);
             GameEvents.onGameStateSave.Remove(OnGameStateSave);
         }
@@ -187,11 +182,6 @@ namespace PersistentRotation
             {
                 data.Save();
             }
-        }
-        private void OnVesselCreate(Vessel vessel)
-        {
-            //Wait for Vessel to be created
-            StartCoroutine(LateGenerate(vessel));
         }
         private void OnVesselWillDestroy(Vessel vessel)
         {
@@ -247,19 +237,6 @@ namespace PersistentRotation
         }
 
         /* PRIVATE METHODS */
-        private IEnumerator LateGenerate(Vessel vessel)
-        {
-            yield return new WaitForEndOfFrame();
-
-            if (vessel) //Check if vessel was already destroyed between last and this frame
-            {
-                Data.PRVessel v = data.FindPRVessel(vessel);
-                v.lastPosition = Vector3.zero;
-                v.lastActive = false;
-                v.lastReference = null;
-                v.lastTransform = vessel.ReferenceTransform;
-            }
-        }
         private void PackedSpin(Data.PRVessel v)
         {
             

@@ -56,6 +56,12 @@ namespace PersistentRotation
                 reference = _reference;
                 momentumModeActive = _momentumModeActive;
                 desiredRPM = _desiredRPM;
+
+                lastPosition = Vector3.zero;
+                lastTransform = vessel.ReferenceTransform;
+                lastReference = reference;
+                lastActive = false;
+
                 processed = false;
             }
         }
