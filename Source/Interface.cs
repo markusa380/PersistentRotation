@@ -1,6 +1,3 @@
-using System.Collections.Generic;
-using System.Collections;
-using System.Linq;
 using System;
 using UnityEngine;
 using KSP.UI.Screens;
@@ -27,14 +24,6 @@ namespace PersistentRotation
         int bodyGuid;
         int configGuid;
 
-        String gui_path()
-        {
-            if (!Directory.Exists(KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData"))
-                Directory.CreateDirectory(KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData");
-
-            return KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData/Config.cfg";
-        }
-
         Rect MainWindowRect;
         Rect BodyWindowRect;
         Rect ConfigWindowRect;
@@ -47,13 +36,21 @@ namespace PersistentRotation
         bool showConfigWindow = false;
 
         bool MainWindowActive = false; // minimize-maximize, overwritten by LoadGUI
-        int visibility_mode = 1; // 1: Always Visible, 2: Stock Toolbar, 3: Blizzys Toolbar, overwritten by LoadGUI
+        int visibilityMode = 1; // 1: Always Visible, 2: Stock Toolbar, 3: Blizzys Toolbar, overwritten by LoadGUI
 
         int mode = 1; // 1: rotation, 2: momentum
-        public string desired_rpm_str = "";
+        public string desiredRPMstr = "";
 
         Texture close = GameDatabase.Instance.GetTexture("PersistentRotation/Textures/close_w", false);
         Texture options = GameDatabase.Instance.GetTexture("PersistentRotation/Textures/options_w", false);
+
+        String GetPath()
+        {
+            if (!Directory.Exists(KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData"))
+                Directory.CreateDirectory(KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData");
+
+            return KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData/Config.cfg";
+        }
 
         private void Awake()
         {
@@ -72,11 +69,11 @@ namespace PersistentRotation
 
             LoadGUI();
 
-            if (visibility_mode == 2)
+            if (visibilityMode == 2)
             {
                 CreateStockToolbar();
             }
-            else if (visibility_mode == 3)
+            else if (visibilityMode == 3)
             {
                 CreateBlizzyToolbar();
             }
@@ -160,7 +157,7 @@ namespace PersistentRotation
                 if (activeVessel.IsControllable)
                 {
                     GUILayout.BeginHorizontal();
-                    if (v.rotation_mode_active)
+                    if (v.rotationModeActive)
                         GUI.contentColor = Color.green;
                     else
                         GUI.contentColor = Color.red;
@@ -170,7 +167,7 @@ namespace PersistentRotation
                         mode = 1;
                     }
 
-                    if (v.momentum_mode_active)
+                    if (v.momentumModeActive)
                         GUI.contentColor = Color.green;
                     else
                         GUI.contentColor = Color.red;
@@ -188,93 +185,83 @@ namespace PersistentRotation
 
                     if (mode == 1)
                     {
-                        if (!activeVessel.Autopilot.Enabled)
-                            GUILayout.Label("Enable SAS to use this mode!");
+                        if (GUILayout.Button("Relative Rotation", GUILayout.ExpandWidth(true)))
+                        {
+                            showBodyWindow = !showBodyWindow;
+                        }
+
+
+                        if (v.reference != null)
+                        {
+                            if (v.dynamicReference)
+                            {
+                                GUILayout.Label("Reference: Dynamic (" + v.reference.GetName() + ")");
+                            }
+                            else
+                                GUILayout.Label("Reference: " + v.reference.GetName());
+                        }
                         else
                         {
-                            if (GUILayout.Button("Relative Rotation", GUILayout.ExpandWidth(true)))
-                            {
-                                showBodyWindow = !showBodyWindow;
-                            }
+                            GUILayout.Label("Reference: None");
+                        }
 
+                        string _text = "Activate";
+                        if (v.rotationModeActive)
+                        {
+                            _text = "Deactivate";
+                        }
 
-                            if (v.reference != null)
+                        if (GUILayout.Button(_text, GUILayout.ExpandWidth(true)))
+                        {
+                            if(v.rotationModeActive == false)
                             {
-                                if (v.dynamic_reference)
-                                {
-                                    GUILayout.Label("Reference: Dynamic (" + v.reference.GetName() + ")");
-                                }
-                                else
-                                    GUILayout.Label("Reference: " + v.reference.GetName());
+                                v.rotationModeActive = true;
+                                v.momentumModeActive = false;
+
+                                if (v.reference != null)
+                                    v.direction = (v.reference.GetTransform().position - activeVessel.transform.position).normalized;
+                                v.rotation = activeVessel.transform.rotation;
+                                v.planetariumRight = Planetarium.right;
                             }
                             else
                             {
-                                GUILayout.Label("Reference: None");
+                                v.rotationModeActive = false;
                             }
 
-                            string _text = "Activate";
-                            if (v.rotation_mode_active)
-                            {
-                                _text = "Deactivate";
-                            }
-
-                            if (GUILayout.Button(_text, GUILayout.ExpandWidth(true)))
-                            {
-                                if(v.rotation_mode_active == false)
-                                {
-                                    v.rotation_mode_active = true;
-                                    v.momentum_mode_active = false;
-
-                                    if (v.reference != null)
-                                        v.direction = (v.reference.GetTransform().position - activeVessel.transform.position).normalized;
-                                    v.rotation = activeVessel.transform.rotation;
-                                    v.planetarium_right = Planetarium.right;
-                                }
-                                else
-                                {
-                                    v.rotation_mode_active = false;
-                                }
-
-                            }
                         }
                     }
                     else if (mode == 2)
                     {
-                        if (!activeVessel.Autopilot.Enabled)
-                            GUILayout.Label("Enable SAS to use this mode!");
-                        else
+                        GUILayout.Label("Overwrite RPM:");
+                        GUILayout.BeginHorizontal();
+                        desiredRPMstr = GUILayout.TextField(desiredRPMstr);
+                        GUILayout.Label(" RPM");
+                        GUILayout.EndHorizontal();
+                        GUILayout.Space(10f);
+                        string _text = "Activate";
+                        if (v.momentumModeActive)
                         {
-                            GUILayout.Label("Overwrite RPM:");
-                            GUILayout.BeginHorizontal();
-                            desired_rpm_str = GUILayout.TextField(desired_rpm_str);
-                            GUILayout.Label(" RPM");
-                            GUILayout.EndHorizontal();
-                            GUILayout.Space(10f);
-                            string _text = "Activate";
-                            if (v.momentum_mode_active)
+                            _text = "Deactivate";
+                        }
+
+                        if (GUILayout.Button(_text, GUILayout.ExpandWidth(true)))
+                        {
+                            v.rotationModeActive = false;
+
+                            if (v.momentumModeActive)
                             {
-                                _text = "Deactivate";
+                                v.momentumModeActive = false;
                             }
-
-                            if (GUILayout.Button(_text, GUILayout.ExpandWidth(true)))
+                            else
                             {
-                                v.rotation_mode_active = false;
-
-                                if (v.momentum_mode_active)
+                                try
                                 {
-                                    v.momentum_mode_active = false;
+                                    v.desiredRPM = float.Parse(desiredRPMstr);
+                                    v.momentumModeActive = true;
                                 }
-                                else
+                                catch
                                 {
-                                    try
-                                    {
-                                        v.desired_rpm = float.Parse(desired_rpm_str);
-                                        v.momentum_mode_active = true;
-                                    }
-                                    catch
-                                    {
-                                        desired_rpm_str = v.desired_rpm.ToString();
-                                    }
+                                    desiredRPMstr = v.desiredRPM.ToString();
                                 }
                             }
                         }
@@ -307,33 +294,33 @@ namespace PersistentRotation
                 {
                     if (activeVessel.targetObject.GetType() == typeof(CelestialBody) || activeVessel.targetObject.GetType() == typeof(Vessel))
                         v.reference = activeVessel.targetObject;
-                    v.dynamic_reference = false;
+                    v.dynamicReference = false;
                 }
                 else
                 {
-                    v.dynamic_reference = false;
+                    v.dynamicReference = false;
                     v.reference = null;
                 }
             }
             if (GUILayout.Button("Unset", GUILayout.ExpandWidth(true)))
             {
                 v.reference = null;
-                v.dynamic_reference = false;
+                v.dynamicReference = false;
             }
             GUILayout.Space(10);
             if (GUILayout.Button("Sun", GUILayout.ExpandWidth(true)))
             {
                 v.reference = Sun.Instance.sun;
-                v.dynamic_reference = false;
+                v.dynamicReference = false;
             }
             if (GUILayout.Button(activeVessel.mainBody.name, GUILayout.ExpandWidth(true)))
             {
                 v.reference = activeVessel.mainBody;
-                v.dynamic_reference = false;
+                v.dynamicReference = false;
             }
             if (GUILayout.Button("Dynamic", GUILayout.ExpandWidth(true)))
             {
-                v.dynamic_reference = true;
+                v.dynamicReference = true;
                 //v.reference = v.vessel.mainBody; --> This should not be necessary!
             }
 
@@ -352,31 +339,31 @@ namespace PersistentRotation
             GUILayout.EndHorizontal();
             GUILayout.Label("GUI Visibility Mode");
 
-            if (visibility_mode == 1)
+            if (visibilityMode == 1)
                 GUI.contentColor = Color.green;
             else
                 GUI.contentColor = Color.red;
 
             if (GUILayout.Button("Always Visible", GUILayout.ExpandWidth(true)))
             {
-                visibility_mode = 1;
+                visibilityMode = 1;
                 DeleteBlizzyToolbar();
                 DeleteStockToolbar();
             }
 
-            if (visibility_mode == 2)
+            if (visibilityMode == 2)
                 GUI.contentColor = Color.green;
             else
                 GUI.contentColor = Color.red;
 
             if (GUILayout.Button("Stock Toolbar", GUILayout.ExpandWidth(true)))
             {
-                visibility_mode = 2;
+                visibilityMode = 2;
                 CreateStockToolbar();
                 DeleteBlizzyToolbar();
             }
 
-            if (visibility_mode == 3)
+            if (visibilityMode == 3)
                 GUI.contentColor = Color.green;
             else
                 GUI.contentColor = Color.red;
@@ -385,7 +372,7 @@ namespace PersistentRotation
             {
                 if (GUILayout.Button("Blizzy's Toolbar", GUILayout.ExpandWidth(true)))
                 {
-                    visibility_mode = 3;
+                    visibilityMode = 3;
                     CreateBlizzyToolbar();
                     DeleteStockToolbar();
                 }
@@ -396,24 +383,24 @@ namespace PersistentRotation
             GUILayout.Space(20);
             GUILayout.Label("Default Reference Body");
 
-            if (data.default_reference_mode == Data.DefaultReferenceMode.NONE)
+            if (data.defaultReferenceMode == Data.DefaultReferenceMode.NONE)
                 GUI.contentColor = Color.green;
             else
                 GUI.contentColor = Color.red;
 
             if (GUILayout.Button("None", GUILayout.ExpandWidth(true)))
             {
-                data.default_reference_mode = Data.DefaultReferenceMode.NONE;
+                data.defaultReferenceMode = Data.DefaultReferenceMode.NONE;
             }
 
-            if (data.default_reference_mode == Data.DefaultReferenceMode.DYNAMIC)
+            if (data.defaultReferenceMode == Data.DefaultReferenceMode.DYNAMIC)
                 GUI.contentColor = Color.green;
             else
                 GUI.contentColor = Color.red;
 
             if (GUILayout.Button("Dynamic", GUILayout.ExpandWidth(true)))
             {
-                data.default_reference_mode = Data.DefaultReferenceMode.DYNAMIC;
+                data.defaultReferenceMode = Data.DefaultReferenceMode.DYNAMIC;
             }
 
             GUI.contentColor = Color.white;
@@ -483,7 +470,7 @@ namespace PersistentRotation
                 ConfigNode.CreateConfigFromObject(this, 0, save);
 
                 save.AddValue("disabled", disabled.ToString());
-                save.AddValue("mode", visibility_mode.ToString());
+                save.AddValue("mode", visibilityMode.ToString());
                 save.AddValue("active", MainWindowActive.ToString());
 
                 save.AddValue("showMain", showMainWindow.ToString());
@@ -498,13 +485,13 @@ namespace PersistentRotation
                 save.AddValue("xConfig", ConfigWindowRect.x.ToString());
                 save.AddValue("yConfig", ConfigWindowRect.y.ToString());
 
-                save.Save(gui_path());
+                save.Save(GetPath());
             }
             catch (Exception e) { Debug.Log("[PR] Saving not successful: " + e.Message); }
         }
         void LoadGUI()
         {
-            ConfigNode load = ConfigNode.Load(gui_path());
+            ConfigNode load = ConfigNode.Load(GetPath());
             if (load == null)
             {
                 Debug.Log("[PR] Cfg file is empty or not existent!");
@@ -516,7 +503,7 @@ namespace PersistentRotation
                 if (s.name == "disabled")
                     disabled = Convert.ToBoolean(s.value);
                 if (s.name == "mode")
-                    visibility_mode = Convert.ToInt32(s.value);
+                    visibilityMode = Convert.ToInt32(s.value);
                 if (s.name == "active")
                     MainWindowActive = Convert.ToBoolean(s.value);
 

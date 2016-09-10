@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Collections;
 using System.Linq;
 using System;
 using UnityEngine;
@@ -12,97 +11,59 @@ namespace PersistentRotation
     {
         public static Data instance { get; private set; }
 
-        String GetPath(int counter)
-        {
-            if (!Directory.Exists(KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData"))
-                Directory.CreateDirectory(KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData");
-
-            return KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData/PersistentRotation_" + HighLogic.CurrentGame.Title.TrimEnd("_()SANDBOXCAREERSCIENCE".ToCharArray()).TrimEnd(' ') + "_" + counter.ToString() +".cfg";
-        }
-        String GetUnusedPath()
-        {
-            int i = 0;
-            while(true)
-            {
-                if(!File.Exists(GetPath(i)))
-                {
-                    return (GetPath(i));
-                }
-                else
-                {
-                    i++;
-                }
-            }
-        }
-        List<String> GetAllPaths()
-        {
-            int i = 0;
-            List<String> paths = new List<String>();
-            while (true)
-            {
-                if (!File.Exists(GetPath(i)))
-                {
-                    return(paths);
-                }
-                else
-                {
-                    paths.Add(GetPath(i));
-                    i++;
-                }
-            }
-        }
-
         public class PRVessel
         {
             //General
             public Vessel vessel;
             public Vector3 momentum;
-            public Vector3 planetarium_right;
+            public Vector3 planetariumRight;
+
+            //Other Mods
+            public MechJebWrapper.SATarget mjMode;
+            public RemoteTechWrapper.ACFlightMode rtMode;
 
             //Rotation Mode
-            public bool rotation_mode_active;
-            public bool dynamic_reference;
+            public bool rotationModeActive;
+            public bool dynamicReference;
             public Quaternion rotation;
             public Vector3 direction;
             public ITargetable reference;
 
             //Momentum Mode
-            public bool momentum_mode_active;
-            public float desired_rpm;
+            public bool momentumModeActive;
+            public float desiredRPM;
 
             //Legacy Data
-            public Vector3 last_position;
-            public Transform last_transform;
-            public bool last_active;
-            public ITargetable last_reference;
+            public Vector3 lastPosition;
+            public Transform lastTransform;
+            public bool lastActive;
+            public ITargetable lastReference;
 
             //Activity check
             public bool processed;
 
-            public PRVessel(Vessel _vessel, Vector3 _momentum, Vector3 _planetarium_right, bool _rotation_mode_active, bool _dynamic_reference, Quaternion _rotation, Vector3 _direction, ITargetable _reference, bool _momentum_mode_active, float _desired_rpm)
+            public PRVessel(Vessel _vessel, Vector3 _momentum, MechJebWrapper.SATarget _mjMode, RemoteTechWrapper.ACFlightMode _rtMode, Vector3 _planetariumRight, bool _rotationModeActive, bool _dynamicReference, Quaternion _rotation, Vector3 _direction, ITargetable _reference, bool _momentumModeActive, float _desiredRPM)
             {
                 vessel = _vessel;
                 momentum = _momentum;
-                planetarium_right = _planetarium_right;
-                rotation_mode_active = _rotation_mode_active;
-                dynamic_reference = _dynamic_reference;
+                planetariumRight = _planetariumRight;
+                mjMode = _mjMode;
+                rtMode = _rtMode;
+                rotationModeActive = _rotationModeActive;
+                dynamicReference = _dynamicReference;
                 rotation = _rotation;
                 direction = _direction;
                 reference = _reference;
-                momentum_mode_active = _momentum_mode_active;
-                desired_rpm = _desired_rpm;
+                momentumModeActive = _momentumModeActive;
+                desiredRPM = _desiredRPM;
+
+                lastPosition = Vector3.zero;
+                lastTransform = vessel.ReferenceTransform;
+                lastReference = reference;
+                lastActive = false;
+
                 processed = false;
             }
-        }
-        public List<PRVessel> PRVessels;
-        public PRVessel FindPRVessel(Vessel vessel)
-        {
-            foreach(PRVessel v in PRVessels)
-            {
-                if (v.vessel == vessel)
-                    return v;
-            }
-            return SubGenerate(vessel);
         }
 
         public enum DefaultReferenceMode
@@ -110,9 +71,9 @@ namespace PersistentRotation
             NONE,
             DYNAMIC
         }
+        public DefaultReferenceMode defaultReferenceMode = DefaultReferenceMode.NONE;
 
-        public DefaultReferenceMode default_reference_mode = DefaultReferenceMode.NONE;
-
+        /* MONOBEHAVIOUR METHODS */
         private void Awake()
         {
             instance = this;
@@ -132,6 +93,7 @@ namespace PersistentRotation
             instance = null;
         }
 
+        /* PRVESSEL STORAGE METHODS */
         public void Save()
         {
             Debug.Log("[PR] Saving Data.");
@@ -139,7 +101,7 @@ namespace PersistentRotation
             {
                 ConfigNode save = new ConfigNode();
                 save.AddValue("TIME", Planetarium.GetUniversalTime().ToString());
-                save.AddValue("DEFAULT_REFERENCE_MODE", ((int)default_reference_mode).ToString());
+                save.AddValue("DEFAULT_REFERENCE_MODE", ((int)defaultReferenceMode).ToString());
                 ConfigNode.CreateConfigFromObject(this, 0, save);
 
                 //Save values per vessel
@@ -147,9 +109,13 @@ namespace PersistentRotation
                 {
                     ConfigNode cn_vessel = save.AddNode(v.vessel.id.ToString());
                     cn_vessel.AddValue("MOMENTUM", KSPUtil.WriteVector(v.momentum));
-                    cn_vessel.AddValue("PLANETARIUM_RIGHT", KSPUtil.WriteVector(v.planetarium_right));
-                    cn_vessel.AddValue("ROTATION_MODE_ACTIVE", v.rotation_mode_active.ToString());
-                    cn_vessel.AddValue("DYNAMIC_REFERENCE", v.dynamic_reference.ToString());
+                    cn_vessel.AddValue("PLANETARIUM_RIGHT", KSPUtil.WriteVector(v.planetariumRight));
+
+                    cn_vessel.AddValue("MJMODE", ((int)(v.mjMode)).ToString());
+                    cn_vessel.AddValue("RTMODE", ((int)(v.rtMode)).ToString());
+
+                    cn_vessel.AddValue("ROTATION_MODE_ACTIVE", v.rotationModeActive.ToString());
+                    cn_vessel.AddValue("DYNAMIC_REFERENCE", v.dynamicReference.ToString());
                     cn_vessel.AddValue("ROTATION", KSPUtil.WriteQuaternion(v.rotation));
                     cn_vessel.AddValue("DIRECTION", KSPUtil.WriteVector(v.direction));
 
@@ -164,8 +130,8 @@ namespace PersistentRotation
                     else
                         cn_vessel.AddValue("REFERENCE", "NONE");
 
-                    cn_vessel.AddValue("MOMENTUM_MODE_ACTIVE", v.momentum_mode_active.ToString());
-                    cn_vessel.AddValue("DESIRED_RPM", v.desired_rpm.ToString());
+                    cn_vessel.AddValue("MOMENTUM_MODE_ACTIVE", v.momentumModeActive.ToString());
+                    cn_vessel.AddValue("DESIRED_RPM", v.desiredRPM.ToString());
                 }
 
                 save.Save(GetUnusedPath());
@@ -229,7 +195,7 @@ namespace PersistentRotation
 
             //Load global variables
 
-            default_reference_mode = (DefaultReferenceMode)(int.Parse(load.GetValue("DEFAULT_REFERENCE_MODE")));
+            defaultReferenceMode = (DefaultReferenceMode)(int.Parse(load.GetValue("DEFAULT_REFERENCE_MODE")));
 
             //Pregenerate data for all vessels that currently exist
 
@@ -250,9 +216,11 @@ namespace PersistentRotation
                 {
                     Debug.Log("[PR] Found node for vessel " + v.vessel.vesselName);
                     v.momentum = KSPUtil.ParseVector3(cn_vessel.GetValue("MOMENTUM"));
-                    v.planetarium_right = KSPUtil.ParseVector3(cn_vessel.GetValue("PLANETARIUM_RIGHT"));
-                    v.rotation_mode_active = Boolean.Parse(cn_vessel.GetValue("ROTATION_MODE_ACTIVE"));
-                    v.dynamic_reference = Boolean.Parse(cn_vessel.GetValue("DYNAMIC_REFERENCE"));
+                    v.planetariumRight = KSPUtil.ParseVector3(cn_vessel.GetValue("PLANETARIUM_RIGHT"));
+                    v.mjMode = MechJebWrapper.saTargetMap[int.Parse(cn_vessel.GetValue("MJMODE"))];
+                    v.rtMode = RemoteTechWrapper.acFlightModeMap[int.Parse(cn_vessel.GetValue("RTMODE"))];
+                    v.rotationModeActive = Boolean.Parse(cn_vessel.GetValue("ROTATION_MODE_ACTIVE"));
+                    v.dynamicReference = Boolean.Parse(cn_vessel.GetValue("DYNAMIC_REFERENCE"));
                     v.rotation = KSPUtil.ParseQuaternion(cn_vessel.GetValue("ROTATION"));
                     v.direction = KSPUtil.ParseVector3(cn_vessel.GetValue("DIRECTION"));
 
@@ -279,8 +247,8 @@ namespace PersistentRotation
                         }
                     }
 
-                    v.momentum_mode_active = Boolean.Parse(cn_vessel.GetValue("MOMENTUM_MODE_ACTIVE"));
-                    v.desired_rpm = float.Parse(cn_vessel.GetValue("DESIRED_RPM"));
+                    v.momentumModeActive = Boolean.Parse(cn_vessel.GetValue("MOMENTUM_MODE_ACTIVE"));
+                    v.desiredRPM = float.Parse(cn_vessel.GetValue("DESIRED_RPM"));
                 }
             }
 
@@ -298,12 +266,25 @@ namespace PersistentRotation
                 Save();
             }
 
+            //TODO: Delete all files on Launch / Keep all files that correspond to a quicksave
+
             Debug.Log("[PR] Oldest time: " + oldest_time.ToString());
             Debug.Log("[PR] Loaded time: " + load.GetValue("TIME"));
 
-            Interface.instance.desired_rpm_str = FindPRVessel(FlightGlobals.ActiveVessel).desired_rpm.ToString(); //Set desired rpm of active vessel
+            Interface.instance.desiredRPMstr = FindPRVessel(FlightGlobals.ActiveVessel).desiredRPM.ToString(); //Set desired rpm of active vessel
         }
 
+        /* PRVESSEL METHODS */
+        public List<PRVessel> PRVessels;
+        public PRVessel FindPRVessel(Vessel vessel)
+        {
+            foreach (PRVessel v in PRVessels)
+            {
+                if (v.vessel == vessel)
+                    return v;
+            }
+            return SubGenerate(vessel);
+        }
         private PRVessel SubGenerate(Vessel vessel)
         {
             //v is null, I have to generate a new PRVessel
@@ -327,13 +308,54 @@ namespace PersistentRotation
 
             PRVessel v;
 
-            if(default_reference_mode == DefaultReferenceMode.DYNAMIC)
-                v = new PRVessel(vessel, momentum, Planetarium.right, true, true, vessel.transform.rotation, (vessel.mainBody.position - vessel.transform.position).normalized, vessel.mainBody, false, 0f);
+            if(defaultReferenceMode == DefaultReferenceMode.DYNAMIC)
+                v = new PRVessel(vessel, momentum, MechJebWrapper.SATarget.OFF, RemoteTechWrapper.ACFlightMode.Off, Planetarium.right, true, true, vessel.transform.rotation, (vessel.mainBody.position - vessel.transform.position).normalized, vessel.mainBody, false, 0f);
             else
-                v = new PRVessel(vessel, momentum, Planetarium.right, true, false, vessel.transform.rotation, (vessel.mainBody.position - vessel.transform.position).normalized, null, false, 0f);
+                v = new PRVessel(vessel, momentum, MechJebWrapper.SATarget.OFF, RemoteTechWrapper.ACFlightMode.Off, Planetarium.right, true, false, vessel.transform.rotation, (vessel.mainBody.position - vessel.transform.position).normalized, null, false, 0f);
 
             PRVessels.Add(v);
             return v;
+        }
+
+        /* PATH METHODS */
+        private String GetPath(int counter)
+        {
+            if (!Directory.Exists(KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData"))
+                Directory.CreateDirectory(KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData");
+
+            return KSPUtil.ApplicationRootPath + "/GameData/PersistentRotation/PluginData/PersistentRotation_" + HighLogic.CurrentGame.Title.TrimEnd("_()SANDBOXCAREERSCIENCE".ToCharArray()).TrimEnd(' ') + "_" + counter.ToString() + ".cfg";
+        }
+        private String GetUnusedPath()
+        {
+            int i = 0;
+            while (true)
+            {
+                if (!File.Exists(GetPath(i)))
+                {
+                    return (GetPath(i));
+                }
+                else
+                {
+                    i++;
+                }
+            }
+        }
+        private List<String> GetAllPaths()
+        {
+            int i = 0;
+            List<String> paths = new List<String>();
+            while (true)
+            {
+                if (!File.Exists(GetPath(i)))
+                {
+                    return (paths);
+                }
+                else
+                {
+                    paths.Add(GetPath(i));
+                    i++;
+                }
+            }
         }
     }
 }
