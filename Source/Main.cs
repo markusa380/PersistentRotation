@@ -98,7 +98,7 @@ namespace PersistentRotation
                 {
                     #region ### UNPACKED ###
                     //Update Momentum when unpacked
-                    if (GetStabilityMode(vessel) != StabilityMode.OFF && !v.momentumModeActive && vessel.IsControllable && vessel.angularVelocity.magnitude < threshold) //C1
+                    if (GetStabilityMode(vessel) != StabilityMode.OFF && !v.momentumModeActive && vessel.angularVelocity.magnitude < threshold) //C1
                     {
                         v.momentum = Vector3.zero;
                     }
@@ -301,7 +301,7 @@ namespace PersistentRotation
         }
         private StabilityMode GetStabilityMode(Vessel vessel)
         {
-            if (vessel.IsControllable == false)
+            if (vessel.IsControllable == false || RemoteTechWrapper.Controllable(vessel) == false)
                 return StabilityMode.OFF; /* Vessel is uncontrollable */
             else if (RemoteTechWrapper.GetMode(vessel) != RemoteTechWrapper.ACFlightMode.Off)
                 return StabilityMode.ABSOLUTE;

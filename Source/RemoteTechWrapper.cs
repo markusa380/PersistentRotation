@@ -18,6 +18,7 @@ namespace PersistentRotation
         private static Type rtAttCom_t;         //AttitudeCommand
         private static PropertyInfo fcAttCom_t;    //FlightComputer.currentFlightMode
         private static FieldInfo acMode_t;      //AttitudeCommand.Mode
+        private static PropertyInfo fcControllable_t;
         private static Reflection.DynamicMethod<Vessel> GetSignalProcessor;
         static internal bool rtAvailable;
 
@@ -93,6 +94,13 @@ namespace PersistentRotation
                     return;
                 }
 
+                fcControllable_t = rtFliCom_t.GetProperty("InputAllowed", BindingFlags.Instance | BindingFlags.Public);
+                if(fcControllable_t == null)
+                {
+                    return;
+                }
+
+
                 rtAvailable = true;
                 Debug.Log("[PR] RemoteTech reflection successfull!");
             }
@@ -156,6 +164,58 @@ namespace PersistentRotation
             else
             {
                 return ACFlightMode.Off;
+            }
+        }
+
+        /* Returns false if FlightComputer is not controllable, in any other case true */
+        public static bool Controllable(Vessel vessel)
+        {
+            object signalProcessor;
+            object flightComputer;
+            object controllable;
+
+            if (rtAvailable)
+            {
+                signalProcessor = null;
+
+                if (vessel.loaded && vessel.parts.Count > 0)
+                {
+                    var partModuleList = vessel.Parts.SelectMany(p => p.Modules.Cast<PartModule>()).Where(pm => pm.Fields.GetValue<bool>("IsRTSignalProcessor")).ToList();
+                    if (partModuleList.Count > 0) //necessary?
+                    {
+                        signalProcessor = partModuleList.FirstOrDefault(pm => pm.moduleName == "ModuleSPU");
+                    }
+
+                    if (signalProcessor == null)
+                    {
+                        return true;
+                    }
+
+                    flightComputer = spFliCom_t.GetValue(signalProcessor, null);
+
+                    if (flightComputer == null)
+                    {
+                        return true;
+                    }
+
+                    controllable = fcControllable_t.GetValue(flightComputer, null);
+
+                    if(controllable == null)
+                    {
+                        return true;
+                    }
+
+                    return (bool)controllable;
+
+                }
+                else
+                {
+                    return true;
+                }
+            }
+            else
+            {
+                return true;
             }
         }
     }
