@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using System;
 using UnityEngine;
-using System.Collections.Generic;
 
 namespace PersistentRotation
 {
@@ -201,14 +200,14 @@ namespace PersistentRotation
         }
         private void OnVesselGoOnRails(Vessel vessel)
         {
-             //Nothing to do here
+            //Nothing to do here
         }
         private void OnVesselGoOffRails(Vessel vessel)
         {
             Data.PRVessel v = data.FindPRVessel(vessel);
             if (vessel.situation != Vessel.Situations.LANDED || vessel.situation != Vessel.Situations.SPLASHED)
             {
-                if(v.rotationModeActive && v.momentum.magnitude > threshold)
+                if (v.rotationModeActive && v.momentum.magnitude > threshold)
                 {
                     ApplyMomentum(v);
                 }
@@ -222,11 +221,11 @@ namespace PersistentRotation
                         //Set relative rotation if there is a reference
                         if (v.reference != null)
                         {
-                            vessel.SetRotation(FromToRotation(shift * v.direction, (v.reference.GetTransform().position - vessel.transform.position).normalized) * (shift * v.rotation));
+                            vessel.SetRotation(FromToRotation(shift * v.direction, (v.reference.GetTransform().position - vessel.transform.position).normalized) * (shift * v.rotation), true);
                         }
 
                         //Reset momentumModeActive heading
-                        vessel.Autopilot.SAS.lockedHeading = vessel.ReferenceTransform.rotation;
+                        vessel.Autopilot.SAS.lockedRotation = vessel.ReferenceTransform.rotation;
                     }
                     else
                     {
@@ -239,15 +238,15 @@ namespace PersistentRotation
         /* PRIVATE METHODS */
         private void PackedSpin(Data.PRVessel v)
         {
-            
-            if(v.vessel.situation != Vessel.Situations.LANDED || v.vessel.situation != Vessel.Situations.SPLASHED)
-                v.vessel.SetRotation(Quaternion.AngleAxis(v.momentum.magnitude * TimeWarp.CurrentRate, v.vessel.ReferenceTransform.rotation * v.momentum) * v.vessel.transform.rotation);
+
+            if (v.vessel.situation != Vessel.Situations.LANDED || v.vessel.situation != Vessel.Situations.SPLASHED)
+                v.vessel.SetRotation(Quaternion.AngleAxis(v.momentum.magnitude * TimeWarp.CurrentRate, v.vessel.ReferenceTransform.rotation * v.momentum) * v.vessel.transform.rotation, true);
         }
         private void PackedRotation(Data.PRVessel v)
         {
             Quaternion shift = Quaternion.Euler(0f, Vector3.Angle(Planetarium.right, v.planetariumRight), 0f);
             if (v.vessel.situation != Vessel.Situations.LANDED || v.vessel.situation != Vessel.Situations.SPLASHED)
-                v.vessel.SetRotation(FromToRotation(shift * v.direction, (v.reference.GetTransform().position - v.vessel.transform.position).normalized) * (shift * v.rotation));
+                v.vessel.SetRotation(FromToRotation(shift * v.direction, (v.reference.GetTransform().position - v.vessel.transform.position).normalized) * (shift * v.rotation), true);
         }
         private void AdjustSAS(Data.PRVessel v)
         {
@@ -257,15 +256,15 @@ namespace PersistentRotation
                 {
                     Vector3d newPosition = (Vector3d)v.lastTransform.position - v.reference.GetTransform().position;
                     QuaternionD delta = FromToRotation(v.lastPosition, newPosition);
-                    QuaternionD adjusted = delta * (QuaternionD)v.vessel.Autopilot.SAS.lockedHeading;
-                    v.vessel.Autopilot.SAS.lockedHeading = adjusted;
+                    QuaternionD adjusted = delta * (QuaternionD)v.vessel.Autopilot.SAS.lockedRotation;
+                    v.vessel.Autopilot.SAS.lockedRotation = adjusted;
                 }
             }
         }
         private void ApplyMomentum(Data.PRVessel v)
         {
             Vector3 av = v.momentum;
-            Vector3 COM = v.vessel.findWorldCenterOfMass();
+            Vector3 COM = v.vessel.CoM;
             Quaternion rotation = v.vessel.ReferenceTransform.rotation;
 
             //Applying force on every part
