@@ -205,7 +205,7 @@ namespace PersistentRotation
         private void OnVesselGoOffRails(Vessel vessel)
         {
             Data.PRVessel v = data.FindPRVessel(vessel);
-            if (vessel.situation != Vessel.Situations.LANDED || vessel.situation != Vessel.Situations.SPLASHED)
+            if (vessel.situation != Vessel.Situations.LANDED && vessel.situation != Vessel.Situations.SPLASHED)
             {
                 if (v.rotationModeActive && v.momentum.magnitude > threshold)
                 {
@@ -273,8 +273,8 @@ namespace PersistentRotation
                 try
                 {
                     if (p.GetComponent<Rigidbody>() == null) continue;
-                    p.GetComponent<Rigidbody>().AddTorque(rotation * av, ForceMode.VelocityChange);
-                    p.GetComponent<Rigidbody>().AddForce(Vector3.Cross(rotation * av, (p.GetComponent<Rigidbody>().position - COM)), ForceMode.VelocityChange);
+                    p.AddTorque(rotation * av);
+                    p.AddForce(Vector3.Cross(rotation * av, (p.GetComponent<Rigidbody>().position - COM)));
                 }
                 catch (NullReferenceException nre)
                 {
