@@ -205,7 +205,7 @@ namespace PersistentRotation
         private void OnVesselGoOffRails(Vessel vessel)
         {
             Data.PRVessel v = data.FindPRVessel(vessel);
-            if (vessel.situation != Vessel.Situations.LANDED && vessel.situation != Vessel.Situations.SPLASHED)
+            if (vessel.situation != Vessel.Situations.LANDED && vessel.situation != Vessel.Situations.SPLASHED && vessel.situation != Vessel.Situations.PRELAUNCH)
             {
                 if (v.rotationModeActive && v.momentum.magnitude > threshold)
                 {
@@ -239,13 +239,13 @@ namespace PersistentRotation
         private void PackedSpin(Data.PRVessel v)
         {
 
-            if (v.vessel.situation != Vessel.Situations.LANDED || v.vessel.situation != Vessel.Situations.SPLASHED)
+            if (v.vessel.situation != Vessel.Situations.LANDED && v.vessel.situation != Vessel.Situations.SPLASHED && v.vessel.situation != Vessel.Situations.PRELAUNCH)
                 v.vessel.SetRotation(Quaternion.AngleAxis(v.momentum.magnitude * TimeWarp.CurrentRate, v.vessel.ReferenceTransform.rotation * v.momentum) * v.vessel.transform.rotation, true);
         }
         private void PackedRotation(Data.PRVessel v)
         {
             Quaternion shift = Quaternion.Euler(0f, Vector3.Angle(Planetarium.right, v.planetariumRight), 0f);
-            if (v.vessel.situation != Vessel.Situations.LANDED || v.vessel.situation != Vessel.Situations.SPLASHED)
+            if (v.vessel.situation != Vessel.Situations.LANDED && v.vessel.situation != Vessel.Situations.SPLASHED && v.vessel.situation != Vessel.Situations.PRELAUNCH)
                 v.vessel.SetRotation(FromToRotation(shift * v.direction, (v.reference.GetTransform().position - v.vessel.transform.position).normalized) * (shift * v.rotation), true);
         }
         private void AdjustSAS(Data.PRVessel v)
@@ -270,16 +270,9 @@ namespace PersistentRotation
             //Applying force on every part
             foreach (Part p in v.vessel.parts)
             {
-                try
-                {
-                    if (p.GetComponent<Rigidbody>() == null) continue;
-                    p.AddTorque(rotation * av);
-                    p.AddForce(Vector3.Cross(rotation * av, (p.GetComponent<Rigidbody>().position - COM)));
-                }
-                catch (NullReferenceException nre)
-                {
-                    Debug.Log("[PR] NullReferenceException in OnVesselGoOffRails: " + nre.Message);
-                }
+                if (!p.GetComponent<Rigidbody>()) continue;
+                p.GetComponent<Rigidbody>().AddTorque( rotation * av, ForceMode.VelocityChange );
+                p.GetComponent<Rigidbody>().AddForce( Vector3.Cross(rotation * av, (p.transform.position - COM)), ForceMode.VelocityChange);
             }
         }
 
