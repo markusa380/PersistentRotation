@@ -68,7 +68,10 @@ namespace PersistentRotation
                     {
                         if (v.momentum.magnitude >= threshold)
                         {
-                            PackedSpin(v);
+                            if (GetStabilityMode(vessel) != StabilityMode.AUTOPILOT)
+                            {
+                                PackedSpin(v);
+                            }
                         }
                         else if (GetStabilityMode(vessel) != StabilityMode.ABSOLUTE)
                         {
@@ -209,7 +212,10 @@ namespace PersistentRotation
             {
                 if (v.rotationModeActive && v.momentum.magnitude > threshold)
                 {
-                    ApplyMomentum(v);
+                    if (GetStabilityMode(vessel) != StabilityMode.AUTOPILOT)
+                    {
+                        ApplyMomentum(v);
+                    }
                 }
                 else if (GetStabilityMode(vessel) != StabilityMode.ABSOLUTE)
                 {
@@ -289,7 +295,8 @@ namespace PersistentRotation
         {
             OFF,
             ABSOLUTE,
-            RELATIVE
+            RELATIVE,
+            AUTOPILOT //When MechJeb controls the vessel, this will be removed when MechJeb waits to enter warp until momentum is zero.
         }
         private StabilityMode GetStabilityMode(Vessel vessel)
         {
@@ -298,7 +305,9 @@ namespace PersistentRotation
             else if (RemoteTechWrapper.GetMode(vessel) != RemoteTechWrapper.ACFlightMode.Off)
                 return StabilityMode.ABSOLUTE;
             else if (MechJebWrapper.Active(vessel))
-                return StabilityMode.ABSOLUTE; /* MechJeb is commanding the vessel */
+            {
+                return StabilityMode.AUTOPILOT; /* MechJeb is commanding the vessel */
+            }
             else if (vessel.ActionGroups[KSPActionGroup.SAS] && data.FindPRVessel(vessel).mjMode == MechJebWrapper.SATarget.OFF && MechJebWrapper.GetMode(vessel) == MechJebWrapper.SATarget.OFF)
             {
                 /* Only stock SAS is enabled */
