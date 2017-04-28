@@ -18,6 +18,10 @@ namespace PersistentRotation
             public Vector3 momentum;
             public Vector3 planetariumRight;
 
+            //Cached data for when going off rails
+            public bool GoingOffRails;
+            public Vector3d GoingOffRailsAngularVel;
+
             //Other Mods
             public MechJebWrapper.SATarget mjMode;
             public RemoteTechWrapper.ACFlightMode rtMode;
@@ -47,6 +51,10 @@ namespace PersistentRotation
                 vessel = _vessel;
                 momentum = _momentum;
                 planetariumRight = _planetariumRight;
+
+                GoingOffRails = false;
+                GoingOffRailsAngularVel = Vector3d.zero;
+
                 mjMode = _mjMode;
                 rtMode = _rtMode;
                 rotationModeActive = _rotationModeActive;
