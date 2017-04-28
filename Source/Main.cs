@@ -96,6 +96,13 @@ namespace PersistentRotation
                 else
                 {
                     #region ### UNPACKED ###
+                    //Did this vessel just go off rails?
+                    if (v.GoingOffRails)
+                    {
+                        v.GoingOffRails = false;
+                        ApplyMomentumNow(v);
+                    }
+
                     //Update Momentum when unpacked
                     if (GetStabilityMode(vessel) != StabilityMode.OFF && !v.momentumModeActive && vessel.angularVelocity.magnitude < threshold) //C1
                     {
@@ -209,7 +216,7 @@ namespace PersistentRotation
             {
                 if (v.rotationModeActive && v.momentum.magnitude > threshold)
                 {
-                    ApplyMomentum(v);
+                    ApplyMomentumDelayed(v);
                 }
                 else if (GetStabilityMode(vessel) != StabilityMode.ABSOLUTE)
                 {
@@ -229,7 +236,7 @@ namespace PersistentRotation
                     }
                     else
                     {
-                        ApplyMomentum(v);
+                        ApplyMomentumDelayed(v);
                     }
                 }
             }
@@ -261,18 +268,31 @@ namespace PersistentRotation
                 }
             }
         }
-        private void ApplyMomentum(Data.PRVessel v)
+        private void ApplyMomentumDelayed(Data.PRVessel v)
         {
-            Vector3 av = v.momentum;
-            Vector3 COM = v.vessel.CoM;
+            //Wait until the next fixedupdate to apply these.
+            //Note that if the vessel immediately went back on rails,
+            //these values would be updated when it came off again and all
+            //would be well.
+            v.GoingOffRails = true;
+            v.GoingOffRailsAngularVel = v.momentum;
+        }
+        private void ApplyMomentumNow(Data.PRVessel v)
+        {
+            Vector3d av = v.GoingOffRailsAngularVel;
+            Vector3d COM = v.vessel.CoMD;
             Quaternion rotation = v.vessel.ReferenceTransform.rotation;
+            Vector3d av_by_rotation = rotation * av;
 
             //Applying force on every part
             foreach (Part p in v.vessel.parts)
             {
                 if (!p.GetComponent<Rigidbody>()) continue;
-                p.GetComponent<Rigidbody>().AddTorque( rotation * av, ForceMode.VelocityChange );
-                p.GetComponent<Rigidbody>().AddForce( Vector3.Cross(rotation * av, (p.transform.position - COM)), ForceMode.VelocityChange);
+                if (p.mass == 0f) continue;
+                Rigidbody partrigidbody = p.GetComponent<Rigidbody> ();
+
+                partrigidbody.AddTorque( av_by_rotation, ForceMode.VelocityChange );
+                partrigidbody.AddForce( Vector3d.Cross (av_by_rotation, (Vector3d)p.WCoM - COM), ForceMode.VelocityChange);
             }
         }
 
