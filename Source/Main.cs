@@ -66,13 +66,13 @@ namespace PersistentRotation
                     #region ### PACKED ###
                     if (vessel.loaded) //is okay, rotation doesnt need to be persistent when rotating
                     {
-                        if (v.momentum.magnitude >= threshold)
+                        if (v.storedAngularMomentum.magnitude >= threshold)
                         {
                             PackedSpin(v);
                         }
                         else if (GetStabilityMode(vessel) != StabilityMode.ABSOLUTE)
                         {
-                            if (GetStabilityMode(vessel) == StabilityMode.RELATIVE && v.rotationModeActive && !v.momentumModeActive && v.momentum.magnitude < threshold)
+                            if (GetStabilityMode(vessel) == StabilityMode.RELATIVE && v.rotationModeActive && !v.momentumModeActive && v.storedAngularMomentum.magnitude < threshold)
                             {
                                 if (v.rotationModeActive == true && v.reference != null)
                                 {
@@ -106,11 +106,11 @@ namespace PersistentRotation
                     //Update Momentum when unpacked
                     if (GetStabilityMode(vessel) != StabilityMode.OFF && !v.momentumModeActive && vessel.angularVelocity.magnitude < threshold) //C1
                     {
-                        v.momentum = Vector3.zero;
+                        v.storedAngularMomentum = Vector3.zero;
                     }
                     else
                     {
-                        v.momentum = vessel.angularVelocity;
+                        v.storedAngularMomentum = vessel.angularMomentum;
                     }
                     //Update mjMode when unpacked
                     v.mjMode = MechJebWrapper.GetMode(vessel);
@@ -208,13 +208,17 @@ namespace PersistentRotation
         private void OnVesselGoOnRails(Vessel vessel)
         {
             //Nothing to do here
+
+            //DEBUG
+            //Data.PRVessel v = data.FindPRVessel(vessel);
+            //KSPLog.print(string.Format("GoOnRails angvel: {0}, stored: {1}", vessel.angularVelocityD, v.storedAngularMomentum));
         }
         private void OnVesselGoOffRails(Vessel vessel)
         {
             Data.PRVessel v = data.FindPRVessel(vessel);
             if (vessel.situation != Vessel.Situations.LANDED && vessel.situation != Vessel.Situations.SPLASHED && vessel.situation != Vessel.Situations.PRELAUNCH)
             {
-                if (v.rotationModeActive && v.momentum.magnitude > threshold)
+                if (v.rotationModeActive && v.storedAngularMomentum.magnitude > threshold)
                 {
                     ApplyMomentumDelayed(v);
                 }
@@ -247,7 +251,7 @@ namespace PersistentRotation
         {
 
             if (v.vessel.situation != Vessel.Situations.LANDED && v.vessel.situation != Vessel.Situations.SPLASHED && v.vessel.situation != Vessel.Situations.PRELAUNCH)
-                v.vessel.SetRotation(Quaternion.AngleAxis(v.momentum.magnitude * TimeWarp.CurrentRate, v.vessel.ReferenceTransform.rotation * v.momentum) * v.vessel.transform.rotation, true);
+                v.vessel.SetRotation(Quaternion.AngleAxis(v.storedAngularMomentum.magnitude * TimeWarp.CurrentRate, v.vessel.ReferenceTransform.rotation * v.storedAngularMomentum) * v.vessel.transform.rotation, true);
         }
         private void PackedRotation(Data.PRVessel v)
         {
@@ -275,14 +279,29 @@ namespace PersistentRotation
             //these values would be updated when it came off again and all
             //would be well.
             v.GoingOffRails = true;
-            v.GoingOffRailsAngularVel = v.momentum;
+            v.GoingOffRailsAngularMomentum = v.storedAngularMomentum;
         }
         private void ApplyMomentumNow(Data.PRVessel v)
         {
-            Vector3d av = v.GoingOffRailsAngularVel;
+            Vector3d angularmomentum = v.GoingOffRailsAngularMomentum;
+
+            Vector3d MOI = v.vessel.MOI;
+            //These shouldn't happen
+            if (MOI.x == 0d) MOI.x = 0.001d;
+            if (MOI.y == 0d) MOI.y = 0.001d;
+            if (MOI.z == 0d) MOI.z = 0.001d;
+
+            Vector3d angularvelocity = Vector3d.zero;
+            angularvelocity.x = angularmomentum.x / MOI.x;
+            angularvelocity.y = angularmomentum.y / MOI.y;
+            angularvelocity.z = angularmomentum.z / MOI.z;
+            //Vector3d av = v.GoingOffRailsAngularMomentum;
+
             Vector3d COM = v.vessel.CoMD;
             Quaternion rotation = v.vessel.ReferenceTransform.rotation;
-            Vector3d av_by_rotation = rotation * av;
+            Vector3d av_by_rotation = rotation * angularvelocity;
+
+            //KSPLog.print(string.Format("Apply angular vel: {0}, MOI: {1}", angularvelocity, MOI));
 
             //Applying force on every part
             foreach (Part p in v.vessel.parts)
