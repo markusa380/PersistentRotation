@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using System;
 using UnityEngine;
 
@@ -11,6 +12,18 @@ namespace PersistentRotation
         private Data data;
         public const float threshold = 0.05f;
         public Vessel activeVessel;
+
+        class RigidBodyMaxAngularVelocitySaveData
+        {
+            public float OriginalValue;
+            public int FrameCounter = 10;
+
+            public RigidBodyMaxAngularVelocitySaveData(float pOriginalValue)
+            {
+                OriginalValue = pOriginalValue;
+            }
+        }
+        Dictionary<Rigidbody, RigidBodyMaxAngularVelocitySaveData> RigidBodyMaxAngularVelocityPairs = new Dictionary<Rigidbody, RigidBodyMaxAngularVelocitySaveData>();
 
         /* MONOBEHAVIOUR METHODS */
         private void Awake()
@@ -41,6 +54,37 @@ namespace PersistentRotation
             foreach (Data.PRVessel v in data.PRVessels)
             {
                 v.processed = false;
+            }
+
+            if (RigidBodyMaxAngularVelocityPairs.Count > 0)
+            {
+                List<Rigidbody> toremove = null;
+                foreach (KeyValuePair<Rigidbody, RigidBodyMaxAngularVelocitySaveData> kp in RigidBodyMaxAngularVelocityPairs)
+                {
+                    kp.Value.FrameCounter--;
+                    if (kp.Value.FrameCounter == 0)
+                    {
+                        try
+                        {
+                            kp.Key.maxAngularVelocity = kp.Value.OriginalValue;
+                        }
+                        catch
+                        {
+                        }
+
+                        if (toremove == null)
+                            toremove = new List<Rigidbody>();
+                        toremove.Add(kp.Key);
+                    }
+                }
+
+                if (toremove != null)
+                {
+                    for (int i = 0; i < toremove.Count; ++i)
+                    {
+                        RigidBodyMaxAngularVelocityPairs.Remove(toremove[i]);
+                    }
+                }
             }
 
             #region ### Cycle through all vessels ###
@@ -97,21 +141,29 @@ namespace PersistentRotation
                 {
                     #region ### UNPACKED ###
                     //Did this vessel just go off rails?
-                    if (v.GoingOffRails)
+                    if (v.GoingOffRailsFrameCounter != -1)
                     {
-                        v.GoingOffRails = false;
-                        ApplyMomentumNow(v);
-                    }
-
-                    //Update Momentum when unpacked
-                    if (GetStabilityMode(vessel) != StabilityMode.OFF && !v.momentumModeActive && vessel.angularVelocity.magnitude < threshold) //C1
-                    {
-                        v.storedAngularMomentum = Vector3.zero;
+                        --v.GoingOffRailsFrameCounter;
+                        if (v.GoingOffRailsFrameCounter == 0)
+                        {
+                            ApplyMomentumNow(v);
+                            v.GoingOffRailsFrameCounter = -1;
+                        }
                     }
                     else
                     {
-                        v.storedAngularMomentum = vessel.angularMomentum;
+                        //Update Momentum when unpacked
+                        if (GetStabilityMode(vessel) != StabilityMode.OFF && !v.momentumModeActive && vessel.angularVelocity.magnitude < threshold) //C1
+                        {
+                            v.storedAngularMomentum = Vector3.zero;
+                        }
+                        else
+                        {
+                            v.storedAngularMomentum = vessel.angularMomentum;
+                            //KSPLog.print(string.Format("SAVE angular vel: {0}, Momentum: {1}, MOI: {2}", vessel.angularVelocity, vessel.angularMomentum, vessel.MOI));
+                        }
                     }
+
                     //Update mjMode when unpacked
                     v.mjMode = MechJebWrapper.GetMode(vessel);
                     v.rtMode = RemoteTechWrapper.GetMode(vessel);
@@ -179,6 +231,8 @@ namespace PersistentRotation
             GameEvents.onVesselGoOffRails.Remove(OnVesselGoOffRails);
             GameEvents.onVesselWillDestroy.Remove(OnVesselWillDestroy);
             GameEvents.onGameStateSave.Remove(OnGameStateSave);
+
+            RigidBodyMaxAngularVelocityPairs.Clear();
         }
 
         /* EVENT METHODS */
@@ -274,11 +328,11 @@ namespace PersistentRotation
         }
         private void ApplyMomentumDelayed(Data.PRVessel v)
         {
-            //Wait until the next fixedupdate to apply these.
+            //Wait a few ticks to apply these.
             //Note that if the vessel immediately went back on rails,
             //these values would be updated when it came off again and all
             //would be well.
-            v.GoingOffRails = true;
+            v.GoingOffRailsFrameCounter = 3;
             v.GoingOffRailsAngularMomentum = v.storedAngularMomentum;
         }
         private void ApplyMomentumNow(Data.PRVessel v)
@@ -301,7 +355,7 @@ namespace PersistentRotation
             Quaternion rotation = v.vessel.ReferenceTransform.rotation;
             Vector3d av_by_rotation = rotation * angularvelocity;
 
-            //KSPLog.print(string.Format("Apply angular vel: {0}, MOI: {1}", angularvelocity, MOI));
+            //KSPLog.print(string.Format("Apply angular vel: {0}, MOI: {1}, momentum: {3}", angularvelocity, MOI, angularmomentum));
 
             //Applying force on every part
             foreach (Part p in v.vessel.parts)
@@ -309,6 +363,12 @@ namespace PersistentRotation
                 if (!p.GetComponent<Rigidbody>()) continue;
                 if (p.mass == 0f) continue;
                 Rigidbody partrigidbody = p.GetComponent<Rigidbody> ();
+
+                //Store the Rigidbody's max angular velocity for later restoration.
+                if (!RigidBodyMaxAngularVelocityPairs.ContainsKey(partrigidbody))
+                    RigidBodyMaxAngularVelocityPairs[partrigidbody] = new RigidBodyMaxAngularVelocitySaveData(partrigidbody.maxAngularVelocity);
+                RigidBodyMaxAngularVelocityPairs[partrigidbody].FrameCounter = 10;
+                partrigidbody.maxAngularVelocity *= 10f;
 
                 partrigidbody.AddTorque( av_by_rotation, ForceMode.VelocityChange );
                 partrigidbody.AddForce( Vector3d.Cross (av_by_rotation, (Vector3d)p.WCoM - COM), ForceMode.VelocityChange);
