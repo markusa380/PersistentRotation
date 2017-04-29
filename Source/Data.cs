@@ -19,7 +19,7 @@ namespace PersistentRotation
             public Vector3 planetariumRight;
 
             //Cached data for when going off rails
-            public bool GoingOffRails;
+            public int GoingOffRailsFrameCounter;
             public Vector3d GoingOffRailsAngularMomentum;
 
             //Other Mods
@@ -52,7 +52,7 @@ namespace PersistentRotation
                 storedAngularMomentum = _momentum;
                 planetariumRight = _planetariumRight;
 
-                GoingOffRails = false;
+                GoingOffRailsFrameCounter = -1;
                 GoingOffRailsAngularMomentum = Vector3d.zero;
 
                 mjMode = _mjMode;
