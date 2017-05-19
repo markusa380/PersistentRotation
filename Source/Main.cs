@@ -309,9 +309,10 @@ namespace PersistentRotation
         /* PRIVATE METHODS */
         private void PackedSpin(Data.PRVessel v)
         {
+            Vector3 _angularVelocity = v.storedAngularMomentum / (Vector3.Dot(v.vessel.MOI, v.storedAngularMomentum));
 
             if (v.vessel.situation != Vessel.Situations.LANDED && v.vessel.situation != Vessel.Situations.SPLASHED && v.vessel.situation != Vessel.Situations.PRELAUNCH)
-                v.vessel.SetRotation(Quaternion.AngleAxis(v.storedAngularMomentum.magnitude * TimeWarp.CurrentRate, v.vessel.ReferenceTransform.rotation * v.storedAngularMomentum) * v.vessel.transform.rotation, true);
+                v.vessel.SetRotation(Quaternion.AngleAxis(_angularVelocity.magnitude * TimeWarp.CurrentRate, v.vessel.ReferenceTransform.rotation  * _angularVelocity) * v.vessel.transform.rotation, true);
         }
         private void PackedRotation(Data.PRVessel v)
         {
