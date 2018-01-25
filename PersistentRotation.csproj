@@ -1,0 +1,132 @@
+﻿<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{77875683-5BA8-435F-8A73-0F602A3C8772}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <NoStandardLibraries>false</NoStandardLibraries>
+    <AssemblyName>PersistentRotation</AssemblyName>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <RootNamespace>PersistentRotation</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>..\..\Steam\steamapps\common\Kerbal Space Program\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="UnityEngine">
+      <HintPath>..\..\Steam\steamapps\common\Kerbal Space Program\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".gitattributes" />
+    <None Include=".gitignore" />
+    <None Include=".git\COMMIT_EDITMSG" />
+    <None Include=".git\config" />
+    <None Include=".git\description" />
+    <None Include=".git\FETCH_HEAD" />
+    <None Include=".git\HEAD" />
+    <None Include=".git\hooks\applypatch-msg.sample" />
+    <None Include=".git\hooks\commit-msg.sample" />
+    <None Include=".git\hooks\post-update.sample" />
+    <None Include=".git\hooks\pre-applypatch.sample" />
+    <None Include=".git\hooks\pre-commit.sample" />
+    <None Include=".git\hooks\pre-push.sample" />
+    <None Include=".git\hooks\pre-rebase.sample" />
+    <None Include=".git\hooks\pre-receive.sample" />
+    <None Include=".git\hooks\prepare-commit-msg.sample" />
+    <None Include=".git\hooks\update.sample" />
+    <None Include=".git\index" />
+    <None Include=".git\info\exclude" />
+    <None Include=".git\logs\HEAD" />
+    <None Include=".git\logs\refs\heads\Release" />
+    <None Include=".git\logs\refs\remotes\origin\HEAD" />
+    <None Include=".git\logs\refs\remotes\upstream\Development" />
+    <None Include=".git\logs\refs\remotes\upstream\Release" />
+    <None Include=".git\objects\0d\83b845d2e255b59675e112e4e0ff525df4aa70" />
+    <None Include=".git\objects\13\5cb9704f698528b01870837264a5ea9f769134" />
+    <None Include=".git\objects\34\e2dcd487f13ba586f21371432f3dad5bbe6fde" />
+    <None Include=".git\objects\3b\295eb8dba1df4fb083ee37bcdccee6527134dd" />
+    <None Include=".git\objects\52\049dbfe8fb77a50674c66d0e0278f2b4d12789" />
+    <None Include=".git\objects\53\0c23cee511188bf7253427f48a987ccdc6bb44" />
+    <None Include=".git\objects\72\f7e16352dbac32fb5662a3eb6eb497c15945e8" />
+    <None Include=".git\objects\85\df800e6432d89f865f1116115218f65a51d507" />
+    <None Include=".git\objects\97\127f897c95dc8889c7ab4b9c4b6040eb609810" />
+    <None Include=".git\objects\b3\7e185dd168e6f16adc77b6af5bd29b02f6af6e" />
+    <None Include=".git\objects\bb\2e60fe969bac740332a23bd099551154fcad54" />
+    <None Include=".git\objects\bd\b0cabc87cf50106df6e15097dff816c8c3eb34" />
+    <None Include=".git\objects\c1\2bc70b52730a1c489e8c4c7674b6be02974010" />
+    <None Include=".git\objects\d9\9369f798b176fca42093296018319a4f1f68ca" />
+    <None Include=".git\objects\de\4d9bed0e5060896b39d93be91362e8005550e0" />
+    <None Include=".git\objects\f1\5c3bc140aa2effe25f4b221a93abf1b6a6554c" />
+    <None Include=".git\objects\fa\20e7949d7a79e41967b568b8cd8b3f706134ff" />
+    <None Include=".git\objects\pack\pack-9151e0aa31d3f0f6ff9c8b58de941fd9b9456d47.idx" />
+    <None Include=".git\objects\pack\pack-9151e0aa31d3f0f6ff9c8b58de941fd9b9456d47.pack" />
+    <None Include=".git\ORIG_HEAD" />
+    <None Include=".git\packed-refs" />
+    <None Include=".git\refs\heads\Release" />
+    <None Include=".git\refs\remotes\origin\HEAD" />
+    <None Include=".git\refs\remotes\upstream\Development" />
+    <None Include=".git\refs\remotes\upstream\Release" />
+    <None Include="README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="GameData\PersistentRotation\Plugins\PersistentRotation.dll" />
+    <Content Include="GameData\PersistentRotation\Textures\close_w.png" />
+    <Content Include="GameData\PersistentRotation\Textures\maximize_w.png" />
+    <Content Include="GameData\PersistentRotation\Textures\minimize_w.png" />
+    <Content Include="GameData\PersistentRotation\Textures\options_w.png" />
+    <Content Include="GameData\PersistentRotation\Textures\texture.png" />
+    <Content Include="LICENSE.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Source\Data.cs" />
+    <Compile Include="Source\Interface.cs" />
+    <Compile Include="Source\Main.cs" />
+    <Compile Include="Source\MechJebWrapper.cs" />
+    <Compile Include="Source\Reflection.cs" />
+    <Compile Include="Source\RemoteTechWrapper.cs" />
+    <Compile Include="Source\ToolbarWrapper.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include=".git\lfs\objects\logs\" />
+    <Folder Include=".git\lfs\tmp\objects\" />
+    <Folder Include=".git\objects\info\" />
+    <Folder Include=".git\refs\tags\" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSHARP.Targets" />
+  <ProjectExtensions>
+    <VisualStudio AllowExistingFolder="true" />
+  </ProjectExtensions>
+  <PropertyGroup>
+    <PostBuildEvent>copy "$(TargetPath)" "$(ProjectDir)GameData\$(ProjectName)\Plugins"</PostBuildEvent>
+  </PropertyGroup>
+</Project>
