@@ -55,7 +55,7 @@
     <Compile Include="Source\RemoteTechWrapper.cs" />
     <Compile Include="Source\ToolbarWrapper.cs" />
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSHARP.Targets" />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSHARP.targets" />
   <ProjectExtensions>
     <VisualStudio AllowExistingFolder="true" />
   </ProjectExtensions>
