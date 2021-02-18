@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 *~
 *.userprefs
 InnerLock/InnerLock/bin/*
@@ -7,3 +8,15 @@ obj
 .idea
 *.zip
 *DotSettings.user
+=======
+bin
+obj
+*.suo
+*.ogg
+*.suo
+*.lock
+*.ide
+*.ide-shm
+*.ide-wal
+Thumbs.db
+>>>>>>> a0d41fd3522130b0b9fde1511ff0ecaf062f4f74
