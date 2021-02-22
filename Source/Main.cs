@@ -13,7 +13,7 @@ namespace PersistentRotation
         public const float threshold = 0.05f;
         public Vessel activeVessel;
 
-        int count = 0;
+        //int count = 0;
 
         class RigidBodyMaxAngularVelocitySaveData
         {
