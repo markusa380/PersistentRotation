@@ -1,0 +1,8 @@
+Changelog
+
+	Merged in localization chagnes from github user @6DBYZBX, includes both
+	english and chinese
+	Replaced toolbar code with the Toolbarcontroller
+	Added ClickThroughBlocker
+	Removed buttons referencing specific button (toolbar or stock)
+	Added button referencing generic toolbar

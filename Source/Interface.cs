@@ -1,13 +1,16 @@
-using System;
+﻿using System;
 using UnityEngine;
 using KSP.UI.Screens;
 using System.IO;
+using KSP.Localization;
+using ToolbarControl_NS;
+using ClickThroughFix;
 
 namespace PersistentRotation
 {
     [KSPAddon(KSPAddon.Startup.Flight, false)]
     class Interface : MonoBehaviour
-    { 
+    {
         public static Interface instance { get; private set; }
 
         private Data data;
@@ -17,8 +20,11 @@ namespace PersistentRotation
             get { return Main.instance.activeVessel; }
         }
 
-        private IButton button;
-        private ApplicationLauncherButton stockButton;
+        //private IButton button;
+        //private ApplicationLauncherButton stockButton;
+
+        ToolbarControl toolbarControl;
+
 
         int mainGuid;
         int bodyGuid;
@@ -69,14 +75,7 @@ namespace PersistentRotation
 
             LoadGUI();
 
-            if (visibilityMode == 2)
-            {
-                CreateStockToolbar();
-            }
-            else if (visibilityMode == 3)
-            {
-                CreateBlizzyToolbar();
-            }
+            CreateToolbarButton();
         }
         private void Start()
         {
@@ -90,26 +89,34 @@ namespace PersistentRotation
 
             GameEvents.onShowUI.Remove(OnShowUI);
             GameEvents.onHideUI.Remove(OnHideUI);
-
-            DeleteBlizzyToolbar();
-            DeleteStockToolbar();
+            DeleteToolbarButton();
         }
 
+        void DeleteToolbarButton()
+        {
+            if (toolbarControl != null)
+            {
+                toolbarControl.OnDestroy();
+                Destroy(toolbarControl);
+                toolbarControl = null;
+            }
+
+        }
         void OnGUI()
         {
             if (!hidden && !disabled)
             {
                 if (showMainWindow)
                 {
-                    MainWindowRect = GUILayout.Window(mainGuid, MainWindowRect, MainGUI, "PersistentRotation");
+                    MainWindowRect = ClickThruBlocker.GUILayoutWindow(mainGuid, MainWindowRect, MainGUI, (Localizer.Format("#LOC_PR_MainGUI")));
                 }
                 if (showBodyWindow)
                 {
-                    BodyWindowRect = GUILayout.Window(bodyGuid, BodyWindowRect, BodyGUI, "Select Body");
+                    BodyWindowRect = ClickThruBlocker.GUILayoutWindow(bodyGuid, BodyWindowRect, BodyGUI, (Localizer.Format("#LOC_PR_BodyGUI")));
                 }
                 if (showConfigWindow)
                 {
-                    ConfigWindowRect = GUILayout.Window(configGuid, ConfigWindowRect, ConfigGUI, "Configure");
+                    ConfigWindowRect =ClickThruBlocker.GUILayoutWindow(configGuid, ConfigWindowRect, ConfigGUI, (Localizer.Format("#LOC_PR_ConfigGUI")));
                 }
             }
         }
@@ -162,7 +169,7 @@ namespace PersistentRotation
                     else
                         GUI.contentColor = Color.red;
 
-                    if (GUILayout.Button("Rotation", GUILayout.ExpandWidth(true)))
+                    if (GUILayout.Button((Localizer.Format("#LOC_PR_Button1")), GUILayout.ExpandWidth(true)))
                     {
                         mode = 1;
                     }
@@ -172,7 +179,7 @@ namespace PersistentRotation
                     else
                         GUI.contentColor = Color.red;
 
-                    if (GUILayout.Button("Momentum", GUILayout.ExpandWidth(true)))
+                    if (GUILayout.Button((Localizer.Format("#LOC_PR_Button2")), GUILayout.ExpandWidth(true)))
                     {
                         mode = 2;
                     }
@@ -185,7 +192,7 @@ namespace PersistentRotation
 
                     if (mode == 1)
                     {
-                        if (GUILayout.Button("Relative Rotation", GUILayout.ExpandWidth(true)))
+                        if (GUILayout.Button((Localizer.Format("#LOC_PR_MODE1_Button")), GUILayout.ExpandWidth(true)))
                         {
                             showBodyWindow = !showBodyWindow;
                         }
@@ -195,25 +202,25 @@ namespace PersistentRotation
                         {
                             if (v.dynamicReference)
                             {
-                                GUILayout.Label("Reference: Dynamic (" + v.reference.GetName() + ")");
+                                GUILayout.Label((Localizer.Format("#LOC_PR_MODE1_Label")) + v.reference.GetName() + ")");
                             }
                             else
-                                GUILayout.Label("Reference: " + v.reference.GetName());
+                                GUILayout.Label((Localizer.Format("#LOC_PR_MODE1_Label1")) + v.reference.GetName());
                         }
                         else
                         {
-                            GUILayout.Label("Reference: None");
+                            GUILayout.Label((Localizer.Format("#LOC_PR_MODE1_Label2")));
                         }
 
-                        string _text = "Activate";
+                        string _text = Localizer.Format("#LOC_PR_MODE1_text");
                         if (v.rotationModeActive)
                         {
-                            _text = "Deactivate";
+                            _text = Localizer.Format("#LOC_PR_MODE1_text1");
                         }
 
                         if (GUILayout.Button(_text, GUILayout.ExpandWidth(true)))
                         {
-                            if(v.rotationModeActive == false)
+                            if (v.rotationModeActive == false)
                             {
                                 v.rotationModeActive = true;
                                 v.momentumModeActive = false;
@@ -232,16 +239,16 @@ namespace PersistentRotation
                     }
                     else if (mode == 2)
                     {
-                        GUILayout.Label("Overwrite RPM:");
+                        GUILayout.Label((Localizer.Format("#LOC_PR_MODE2_GUILabel1")));
                         GUILayout.BeginHorizontal();
                         desiredRPMstr = GUILayout.TextField(desiredRPMstr);
-                        GUILayout.Label(" RPM");
+                        GUILayout.Label((Localizer.Format("#LOC_PR_MODE2_GUILabel2")));
                         GUILayout.EndHorizontal();
                         GUILayout.Space(10f);
-                        string _text = "Activate";
+                        string _text = Localizer.Format("#LOC_PR_MODE2_text1");
                         if (v.momentumModeActive)
                         {
-                            _text = "Deactivate";
+                            _text = Localizer.Format("#LOC_PR_MODE2_text2");
                         }
 
                         if (GUILayout.Button(_text, GUILayout.ExpandWidth(true)))
@@ -269,7 +276,7 @@ namespace PersistentRotation
                 }
                 else
                 {
-                    GUILayout.Label("Vessel is not controllable.");
+                    GUILayout.Label((Localizer.Format("#LOC_PR_MODE2_GUILabel3")));
                 }
                 GUI.DragWindow();
             }
@@ -287,8 +294,8 @@ namespace PersistentRotation
                 showBodyWindow = false;
             }
             GUILayout.EndHorizontal();
-            GUILayout.Label("Select target in map \nto set as reference");
-            if (GUILayout.Button("Set", GUILayout.ExpandWidth(true)))
+            GUILayout.Label((Localizer.Format("#LOC_PR_BodyGUI_GUILabel")));
+            if (GUILayout.Button((Localizer.Format("#LOC_PR_BodyGUI_Button")), GUILayout.ExpandWidth(true)))
             {
                 if (activeVessel.targetObject != null)
                 {
@@ -302,7 +309,7 @@ namespace PersistentRotation
                     v.reference = null;
                 }
             }
-            if (GUILayout.Button("Unset", GUILayout.ExpandWidth(true)))
+            if (GUILayout.Button((Localizer.Format("#LOC_PR_BodyGUI_Button1")), GUILayout.ExpandWidth(true)))
             {
                 v.reference = null;
                 v.dynamicReference = false;
@@ -318,7 +325,7 @@ namespace PersistentRotation
                 v.reference = activeVessel.mainBody;
                 v.dynamicReference = false;
             }
-            if (GUILayout.Button("Dynamic", GUILayout.ExpandWidth(true)))
+            if (GUILayout.Button((Localizer.Format("#LOC_PR_BodyGUI_Button2")), GUILayout.ExpandWidth(true)))
             {
                 v.dynamicReference = true;
                 //v.reference = v.vessel.mainBody; --> This should not be necessary!
@@ -337,58 +344,42 @@ namespace PersistentRotation
                 showConfigWindow = false;
             }
             GUILayout.EndHorizontal();
-            GUILayout.Label("GUI Visibility Mode");
+            //GUILayout.Label((Localizer.Format("#LOC_PR_ConfigGUI_GUILabel")));
 
             if (visibilityMode == 1)
                 GUI.contentColor = Color.green;
             else
                 GUI.contentColor = Color.red;
 
-            if (GUILayout.Button("Always Visible", GUILayout.ExpandWidth(true)))
+            if (GUILayout.Button((Localizer.Format("#LOC_PR_ConfigGUI_Button1")), GUILayout.ExpandWidth(true)))
             {
                 visibilityMode = 1;
-                DeleteBlizzyToolbar();
-                DeleteStockToolbar();
+                DeleteToolbarButton();
             }
+
 
             if (visibilityMode == 2)
                 GUI.contentColor = Color.green;
             else
                 GUI.contentColor = Color.red;
 
-            if (GUILayout.Button("Stock Toolbar", GUILayout.ExpandWidth(true)))
+            if (GUILayout.Button((Localizer.Format("#LOC_PR_ConfigGUI_Button2")), GUILayout.ExpandWidth(true)))
             {
                 visibilityMode = 2;
-                CreateStockToolbar();
-                DeleteBlizzyToolbar();
-            }
-
-            if (visibilityMode == 3)
-                GUI.contentColor = Color.green;
-            else
-                GUI.contentColor = Color.red;
-
-            if (ToolbarManager.ToolbarAvailable)
-            {
-                if (GUILayout.Button("Blizzy's Toolbar", GUILayout.ExpandWidth(true)))
-                {
-                    visibilityMode = 3;
-                    CreateBlizzyToolbar();
-                    DeleteStockToolbar();
-                }
+                    CreateToolbarButton();
             }
 
             GUI.contentColor = Color.white;
 
             GUILayout.Space(20);
-            GUILayout.Label("Default Reference Body");
+            GUILayout.Label((Localizer.Format("#LOC_PR_ConfigGUI_GUILabel2")));
 
             if (data.defaultReferenceMode == Data.DefaultReferenceMode.NONE)
                 GUI.contentColor = Color.green;
             else
                 GUI.contentColor = Color.red;
 
-            if (GUILayout.Button("None", GUILayout.ExpandWidth(true)))
+            if (GUILayout.Button((Localizer.Format("#LOC_PR_ConfigGUI_Button4")), GUILayout.ExpandWidth(true)))
             {
                 data.defaultReferenceMode = Data.DefaultReferenceMode.NONE;
             }
@@ -398,7 +389,7 @@ namespace PersistentRotation
             else
                 GUI.contentColor = Color.red;
 
-            if (GUILayout.Button("Dynamic", GUILayout.ExpandWidth(true)))
+            if (GUILayout.Button((Localizer.Format("#LOC_PR_ConfigGUI_Button5")), GUILayout.ExpandWidth(true)))
             {
                 data.defaultReferenceMode = Data.DefaultReferenceMode.DYNAMIC;
             }
@@ -408,20 +399,31 @@ namespace PersistentRotation
             GUILayout.EndVertical();
             GUI.DragWindow();
         }
-        void CreateBlizzyToolbar()
+
+        internal const string MODID = "PersistentRotation";
+        internal const string MODNAME = "PersistentRotation";
+
+        void CreateToolbarButton()
         {
-            if (ToolbarManager.ToolbarAvailable)
+            if (toolbarControl == null)
             {
-                // regular button
-                button = ToolbarManager.Instance.add("PersistentRotation", "button");
-                button.TexturePath = "PersistentRotation/Textures/texture";
-                button.ToolTip = "Toggle PersistentRotation";
-                button.OnClick += (e) =>
-                {
-                    disabled = !disabled;
-                };
+                toolbarControl = gameObject.AddComponent<ToolbarControl>();
+                toolbarControl.AddToAllToolbars(OnClick, OnClick,
+                    ApplicationLauncher.AppScenes.FLIGHT,
+                    MODID,
+                    "persistRotBtn",
+                    "PersistentRotation/Textures/texture",
+                    "PersistentRotation/Textures/texture",
+                    "Toggle " + MODNAME
+                    );
             }
         }
+        void OnClick()
+        {
+            disabled = !disabled;
+        }
+
+#if falase
         void DeleteBlizzyToolbar()
         {
             if (ToolbarManager.ToolbarAvailable)
@@ -462,6 +464,7 @@ namespace PersistentRotation
                 stockButton = null;
             }
         }
+#endif
         void SaveGUI()
         {
             try

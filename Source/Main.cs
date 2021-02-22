@@ -13,6 +13,8 @@ namespace PersistentRotation
         public const float threshold = 0.05f;
         public Vessel activeVessel;
 
+        //int count = 0;
+
         class RigidBodyMaxAngularVelocitySaveData
         {
             public float OriginalValue;
@@ -110,16 +112,28 @@ namespace PersistentRotation
                     #region ### PACKED ###
                     if (vessel.loaded) //is okay, rotation doesnt need to be persistent when rotating
                     {
-                        if (v.storedAngularMomentum.magnitude >= threshold)
+                        var currentStabilityMode = GetStabilityMode(vessel);
+
+                        //Debug.Log("[PR] - currentStabilityMode: " + Enum.GetName(typeof(StabilityMode), currentStabilityMode));
+
+                        if (currentStabilityMode == StabilityMode.PROGRADE)
                         {
-                            if (GetStabilityMode(vessel) != StabilityMode.AUTOPILOT)
+                            var rotation = Quaternion.FromToRotation(vessel.transform.up.normalized, vessel.obt_velocity.normalized);
+
+                            vessel.transform.Rotate(rotation.eulerAngles, Space.World);
+
+                            v.vessel.SetRotation(vessel.transform.rotation);
+                        }
+                        else if (v.storedAngularMomentum.magnitude >= threshold)
+                        {
+                            if (currentStabilityMode != StabilityMode.AUTOPILOT)
                             {
                                 PackedSpin(v);
                             }
                         }
-                        else if (GetStabilityMode(vessel) != StabilityMode.ABSOLUTE)
+                        else if (currentStabilityMode != StabilityMode.ABSOLUTE)
                         {
-                            if (GetStabilityMode(vessel) == StabilityMode.RELATIVE && v.rotationModeActive && !v.momentumModeActive && v.storedAngularMomentum.magnitude < threshold)
+                            if (currentStabilityMode == StabilityMode.RELATIVE && v.rotationModeActive && !v.momentumModeActive && v.storedAngularMomentum.magnitude < threshold)
                             {
                                 if (v.rotationModeActive == true && v.reference != null)
                                 {
@@ -386,11 +400,37 @@ namespace PersistentRotation
             }
         }
 
+        private Quaternion FromToRotation2(Vector3d fromv, Vector3d tov) //Stock FromToRotation() doesn't work correctly
+        {
+            double dot = Vector3d.Dot(fromv, tov);
+            
+
+            if (dot > 0.999999 || dot < -0.999999)
+                return Quaternion.identity; //  new Quaternion(0, 0, 0, 0);
+
+            Debug.Log("[PR] - fromv = " + fromv.ToString());
+            Debug.Log("[PR] - tov = " + tov.ToString());
+            Debug.Log("[PR] - Vector3d.Dot(fromv, tov) = " + dot);
+            Vector3d cross = Vector3d.Cross(fromv, tov);
+            Debug.Log("[PR] - Vector3d.Cross(fromv, tov) = " + cross.ToString());
+
+            //double wval = (1 - dot) + Math.Sqrt((fromv.magnitude * fromv.magnitude) * (tov.magnitude * tov.magnitude));
+            //double norm = 1.0 / Math.Sqrt((cross.x * cross.x) + (cross.y * cross.y) + (cross.z * cross.z) + (wval * wval));
+            //var result = new QuaternionD((float)(cross.x * norm), (float)(cross.y * norm), (float)(cross.z * norm), (float)(wval * norm));
+
+            double wval = (1 - dot) + Math.Sqrt(fromv.sqrMagnitude * tov.sqrMagnitude);
+            //double norm = 1.0 / Math.Sqrt(cross.sqrMagnitude + wval * wval);
+            var result = new QuaternionD(cross.x, cross.y, cross.z, wval);
+
+            return result;
+        }
+
         /* UTILITY METHODS */
         private Quaternion FromToRotation(Vector3d fromv, Vector3d tov) //Stock FromToRotation() doesn't work correctly
         {
             Vector3d cross = Vector3d.Cross(fromv, tov);
             double dot = Vector3d.Dot(fromv, tov);
+            //Debug.Log("[PR] - Vector3d.Dot(fromv, tov) = " + dot);
             double wval = dot + Math.Sqrt(fromv.sqrMagnitude * tov.sqrMagnitude);
             double norm = 1.0 / Math.Sqrt(cross.sqrMagnitude + wval * wval);
             return new QuaternionD(cross.x * norm, cross.y * norm, cross.z * norm, wval * norm);
@@ -400,7 +440,8 @@ namespace PersistentRotation
             OFF,
             ABSOLUTE,
             RELATIVE,
-            AUTOPILOT //When MechJeb controls the vessel, this will be removed when MechJeb waits to enter warp until momentum is zero.
+            AUTOPILOT, //When MechJeb controls the vessel, this will be removed when MechJeb waits to enter warp until momentum is zero.
+            PROGRADE
         }
         private StabilityMode GetStabilityMode(Vessel vessel)
         {
@@ -418,6 +459,8 @@ namespace PersistentRotation
 
                 if (vessel.Autopilot.Mode == VesselAutopilot.AutopilotMode.StabilityAssist)
                     return StabilityMode.RELATIVE;
+                else if (vessel.Autopilot.Mode == VesselAutopilot.AutopilotMode.Prograde)
+                    return StabilityMode.PROGRADE;
                 else
                     return StabilityMode.ABSOLUTE;
             }
